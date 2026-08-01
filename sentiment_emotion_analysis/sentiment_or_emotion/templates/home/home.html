@@ -1,0 +1,113 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}Dashboard - Tweet Analyzer{% endblock %}
+{% block active_home %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+  .kpi-row {
+    margin-bottom: 30px;
+  }
+  .feature-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    padding: 30px;
+    text-align: center;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none !important;
+    min-height: 250px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  .feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    border-color: var(--primary-color);
+  }
+  .feature-icon {
+    font-size: 40px;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-5">
+  <div class="col-md-8">
+    <h1 style="font-weight: 800; color: var(--text-primary);">Dashboard</h1>
+    <p class="text-muted">Real-time overview of tweet sentiment and emotions.</p>
+  </div>
+</div>
+
+<!-- KPI Counters Row -->
+<div class="row kpi-row">
+  <div class="col-md-4">
+    <div class="card-glass text-center">
+      <i class="fa-solid fa-paper-plane" style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;"></i>
+      <h6 class="text-muted">Tweets Per Minute</h6>
+      <h2 style="font-weight: 700; color: var(--text-primary);">350,632</h2>
+      <p class="text-success small mb-0"><i class="fa-solid fa-arrow-up"></i> +12% from yesterday</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card-glass text-center">
+      <i class="fa-solid fa-users" style="font-size: 24px; color: #10b981; margin-bottom: 10px;"></i>
+      <h6 class="text-muted">Active Users</h6>
+      <h2 style="font-weight: 700; color: var(--text-primary);">321.05 M</h2>
+      <p class="text-success small mb-0"><i class="fa-solid fa-arrow-up"></i> +4.2% monthly growth</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card-glass text-center">
+      <i class="fa-solid fa-clock" style="font-size: 24px; color: #f59e0b; margin-bottom: 10px;"></i>
+      <h6 class="text-muted">Minutes Since First Tweet</h6>
+      <h2 style="font-weight: 700; color: var(--text-primary);">7,447,680</h2>
+      <p class="text-muted small mb-0">Twitter history tracking</p>
+    </div>
+  </div>
+</div>
+
+<!-- History and shortcuts panel -->
+{% if user.is_authenticated %}
+<div class="card-glass">
+  <h5 class="text-white mb-3" style="font-weight: 600; color: var(--text-primary) !important;"><i class="fa-solid fa-clock-rotate-left"></i> Your Recent Search History</h5>
+  <div class="d-flex flex-wrap">
+    {% for item in history %}
+      <span class="badge p-2 m-1" style="background: var(--accent-hover); border: 1px solid var(--primary-color); border-radius: 20px; font-size: 13px; color: var(--primary-color);">
+        <i class="fa-solid fa-magnifying-glass mr-1"></i> {{ item.query }} ({{ item.analysis_type }})
+      </span>
+    {% empty %}
+      <span class="text-muted">No searches yet. Perform your first analysis using the shortcuts below!</span>
+    {% endfor %}
+  </div>
+  {% if history %}
+    <a href="/delete-history/" class="btn btn-sm btn-outline-danger mt-3" style="border-radius: 15px;">Clear History</a>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- Primary Features/Shortcuts -->
+<div class="row mt-4">
+  <div class="col-md-6 mb-4">
+    <a href="/sentiment" class="feature-card d-block">
+      <i class="fa-solid fa-face-smile feature-icon"></i>
+      <h3 style="font-weight: 700; color: var(--text-primary);">Sentiment Analysis</h3>
+      <p class="text-muted mb-0">Import tweets and categorize them into Positive, Neutral, or Negative sentiments with live interactive dashboards.</p>
+    </a>
+  </div>
+  <div class="col-md-6 mb-4">
+    <a href="/emotion" class="feature-card d-block">
+      <i class="fa-solid fa-heart feature-icon" style="color: #ec4899;"></i>
+      <h3 style="font-weight: 700; color: var(--text-primary);">Emotion Classification</h3>
+      <p class="text-muted mb-0">Analyze deep-seated emotions including Love, Happiness, Worry, Sadness, and Hate using state-of-the-art classifier models.</p>
+    </a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,117 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}Compare Topics - Tweet Analyzer{% endblock %}
+{% block active_compare %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+  .compare-card {
+    max-width: 700px;
+    margin: 50px auto 0 auto;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+  }
+  .form-check-input:checked {
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+  }
+  .btn-submit {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+    font-weight: 600;
+    height: 50px;
+    border-radius: 12px !important;
+    width: 100%;
+    transition: transform 0.2s ease;
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+  }
+  /* Loader styles */
+  .loader-container {
+    display: none;
+    text-align: center;
+    margin-top: 20px;
+  }
+  .spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid var(--border-color);
+    border-top: 5px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 15px auto;
+  }
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-md-12 text-center">
+    <h1 style="font-weight: 800; color: var(--text-primary);">Compare Topics</h1>
+    <p class="text-muted">Analyze and compare public sentiment splits side-by-side between two queries.</p>
+  </div>
+</div>
+
+<div class="compare-card">
+  <h4 class="text-center mb-4" style="font-weight: 700; color: var(--text-primary);">Topic Comparison Setup</h4>
+  
+  {% if error_message %}
+    <div class="alert alert-danger mb-4" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; border-radius: 10px; padding: 15px;">
+      <i class="fa-solid fa-triangle-exclamation mr-2"></i> <strong>Error:</strong> {{ error_message }}
+    </div>
+  {% endif %}
+
+  <form method="POST" id="compareForm" onsubmit="showLoader()">
+    {% csrf_token %}
+    
+    <!-- Mode Selection -->
+    <div class="text-center mb-4">
+      <div class="form-check form-check-inline mx-3">
+        <input class="form-check-input" type="radio" name="mode" id="modeLive" value="live" checked>
+        <label class="form-check-label" for="modeLive" style="font-weight: 600; color: var(--text-primary);">Real-Time Twitter API</label>
+      </div>
+      <div class="form-check form-check-inline mx-3">
+        <input class="form-check-input" type="radio" name="mode" id="modeDataset" value="dataset">
+        <label class="form-check-label" for="modeDataset" style="font-weight: 600; color: var(--text-primary);">Kaggle Dataset Mode</label>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label for="topic_a" style="font-weight: 500; color: var(--text-secondary);">Topic A Query</label>
+        <input type="text" id="topic_a" name="topic_a" class="form-control" placeholder="e.g. OpenAI" required style="height: 48px;">
+      </div>
+      <div class="col-md-6 mb-3">
+        <label for="topic_b" style="font-weight: 500; color: var(--text-secondary);">Topic B Query</label>
+        <input type="text" id="topic_b" name="topic_b" class="form-control" placeholder="e.g. Google" required style="height: 48px;">
+      </div>
+    </div>
+    
+    <button type="submit" class="btn btn-submit mt-3" id="submitBtn">Compare Sentiments <i class="fa-solid fa-arrow-right-arrow-left ml-1"></i></button>
+  </form>
+
+  <div class="loader-container" id="loader">
+    <div class="spinner"></div>
+    <h6 style="color: var(--text-primary); font-weight: 600;">Fetching and Analyzing Tweets...</h6>
+    <p class="text-muted small">Performing NLP sentiment and emotion classifications. Please wait.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function showLoader() {
+    document.getElementById('submitBtn').style.display = 'none';
+    document.getElementById('loader').style.display = 'block';
+  }
+</script>
+{% endblock %}

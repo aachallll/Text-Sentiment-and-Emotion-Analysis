@@ -1,0 +1,567 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}Comparison Dashboard - Tweet Analyzer{% endblock %}
+{% block active_compare %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+  .metric-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .topic-a-theme {
+    color: var(--primary-color) !important;
+  }
+  .topic-b-theme {
+    color: #ec4899 !important;
+  }
+  .keyword-badge {
+    display: inline-block;
+    background: var(--border-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 4px 10px;
+    border-radius: 20px;
+    margin: 3px;
+    font-size: 12px;
+  }
+  .btn-export {
+    background: var(--accent-hover);
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 10px 20px;
+    transition: all 0.3s ease;
+  }
+  .btn-export:hover {
+    background: var(--primary-color);
+    color: white;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-5">
+  <div class="col-md-7">
+    <h1 style="font-weight: 800; color: var(--text-primary);">Topic Comparison</h1>
+    <p class="text-muted">
+      Comparing: <strong class="topic-a-theme">{{ topic_a }}</strong> vs <strong class="topic-b-theme">{{ topic_b }}</strong> | 
+      <span class="badge p-2" style="font-size: 12px; background: var(--accent-hover); border: 1px solid var(--primary-color); color: var(--primary-color); border-radius: 12px;">
+        MODE: {{ source_indicator }}
+      </span>
+    </p>
+  </div>
+  <div class="col-md-5 text-md-right d-flex align-items-center justify-content-end">
+    <!-- Swap Form -->
+    <form method="POST" action="/compare/">
+      {% csrf_token %}
+      <input type="hidden" name="topic_a" value="{{ topic_b }}">
+      <input type="hidden" name="topic_b" value="{{ topic_a }}">
+      <input type="hidden" name="mode" value="{{ mode }}">
+      <button type="submit" class="btn btn-outline-primary mr-2" style="border-radius: 10px; font-weight: 600;">
+        <i class="fa-solid fa-arrow-right-arrow-left"></i> Swap Topics
+      </button>
+    </form>
+    
+    <a href="/compare/" class="btn btn-outline-secondary mr-2" style="border-radius: 10px; font-weight: 600;">
+      <i class="fa-solid fa-rotate-right"></i> Reset & Compare Again
+    </a>
+
+    <div class="dropdown">
+      <button class="btn btn-export dropdown-toggle" type="button" id="exportMenu" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        <i class="fa-solid fa-download mr-1"></i> Export
+      </button>
+      <div class="dropdown-menu dropdown-menu-right bg-dark border border-secondary" aria-labelledby="exportMenu">
+        <a class="dropdown-item text-white" href="/compare/export-csv/">Export CSV</a>
+        <a class="dropdown-item text-white" href="/compare/export-excel/">Export Excel (XLS)</a>
+        <a class="dropdown-item text-white" href="/compare/export-pdf/">Export Text Report</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AI Generated Comparison Summary -->
+<div class="card-glass mb-4" style="border-left: 5px solid var(--primary-color);">
+  <h5 style="color: var(--primary-color); font-weight: 700;"><i class="fa-solid fa-robot"></i> AI Summary Comparison Insight</h5>
+  <p class="lead mb-0" style="color: var(--text-primary); line-height: 1.6; font-style: italic; font-size: 16px;">
+    "{{ summary }}"
+  </p>
+</div>
+
+<!-- Side-by-side KPI Summary Cards -->
+<div class="row">
+  <!-- Topic A KPIs -->
+  <div class="col-md-6 mb-4">
+    <div class="card-glass" style="border-top: 4px solid var(--primary-color);">
+      <h3 style="font-weight: 700; color: var(--primary-color);" class="mb-4">{{ topic_a }} Dashboard</h3>
+      <div class="row">
+        <div class="col-6 mb-3">
+          <span class="text-muted small">Tweets Analyzed</span>
+          <div class="metric-value">{{ metrics_a.total }}</div>
+        </div>
+        <div class="col-6 mb-3">
+          <span class="text-muted small">Avg Confidence</span>
+          <div class="metric-value">{{ metrics_a.avg_conf }}%</div>
+        </div>
+        <div class="col-6 mb-3">
+          <span class="text-muted small">Dominant Emotion</span>
+          <div class="metric-value text-capitalize" style="color: #f59e0b;">{{ metrics_a.dominant_emotion }}</div>
+        </div>
+        <div class="col-6 mb-3">
+          <span class="text-muted small">Positive Sentiment</span>
+          <div class="metric-value text-success">{{ metrics_a.pos_pct }}%</div>
+        </div>
+      </div>
+      <hr style="border-color: var(--border-color);">
+      <div class="row text-center mt-3">
+        <div class="col-4">
+          <span class="text-muted small">Likes</span>
+          <div style="font-weight: 600; color: var(--text-primary);">{{ metrics_a.likes }}</div>
+        </div>
+        <div class="col-4">
+          <span class="text-muted small">Retweets</span>
+          <div style="font-weight: 600; color: var(--text-primary);">{{ metrics_a.retweets }}</div>
+        </div>
+        <div class="col-4">
+          <span class="text-muted small">Replies</span>
+          <div style="font-weight: 600; color: var(--text-primary);">{{ metrics_a.replies }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Topic B KPIs -->
+  <div class="col-md-6 mb-4">
+    <div class="card-glass" style="border-top: 4px solid #ec4899;">
+      <h3 style="font-weight: 700; color: #ec4899;" class="mb-4">{{ topic_b }} Dashboard</h3>
+      <div class="row">
+        <div class="col-6 mb-3">
+          <span class="text-muted small">Tweets Analyzed</span>
+          <div class="metric-value">{{ metrics_b.total }}</div>
+        </div>
+        <div class="col-6 mb-3">
+          <span class="text-muted small">Avg Confidence</span>
+          <div class="metric-value">{{ metrics_b.avg_conf }}%</div>
+        </div>
+        <div class="col-6 mb-3">
+          <span class="text-muted small">Dominant Emotion</span>
+          <div class="metric-value text-capitalize" style="color: #f59e0b;">{{ metrics_b.dominant_emotion }}</div>
+        </div>
+        <div class="col-6 mb-3">
+          <span class="text-muted small">Positive Sentiment</span>
+          <div class="metric-value text-success">{{ metrics_b.pos_pct }}%</div>
+        </div>
+      </div>
+      <hr style="border-color: var(--border-color);">
+      <div class="row text-center mt-3">
+        <div class="col-4">
+          <span class="text-muted small">Likes</span>
+          <div style="font-weight: 600; color: var(--text-primary);">{{ metrics_b.likes }}</div>
+        </div>
+        <div class="col-4">
+          <span class="text-muted small">Retweets</span>
+          <div style="font-weight: 600; color: var(--text-primary);">{{ metrics_b.retweets }}</div>
+        </div>
+        <div class="col-4">
+          <span class="text-muted small">Replies</span>
+          <div style="font-weight: 600; color: var(--text-primary);">{{ metrics_b.replies }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Interactive Global Filters for Swapping/Slicing Dataset -->
+<div class="card-glass mb-4">
+  <h5 class="text-white mb-3" style="font-weight: 600; color: var(--text-primary) !important;"><i class="fa-solid fa-filter"></i> Interactive Filter Controls</h5>
+  <div class="row">
+    <div class="col-md-3 mb-2">
+      <label for="filterLikes" class="text-muted small">Min Likes</label>
+      <input type="number" id="filterLikes" class="form-control" value="0" min="0">
+    </div>
+    <div class="col-md-3 mb-2">
+      <label for="filterRetweets" class="text-muted small">Min Retweets</label>
+      <input type="number" id="filterRetweets" class="form-control" value="0" min="0">
+    </div>
+    <div class="col-md-4 mb-2">
+      <label for="filterKeyword" class="text-muted small">Keyword Search (Both Topics)</label>
+      <input type="text" id="filterKeyword" class="form-control" placeholder="Search keywords...">
+    </div>
+    <div class="col-md-2 mb-2 d-flex align-items-center">
+      <div class="custom-control custom-checkbox mt-3">
+        <input type="checkbox" class="custom-control-input" id="filterVerified">
+        <label class="custom-control-label text-muted" for="filterVerified">Verified only</label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Grid -->
+<div class="row">
+  <!-- Grouped Sentiment Bar -->
+  <div class="col-md-6 mb-4">
+    <div class="card-glass" style="height: 400px;">
+      <h5 class="text-white mb-4" style="color: var(--text-primary) !important;">Sentiment Splits Comparison</h5>
+      <div style="height: 300px; position: relative;">
+        <canvas id="compareBarChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Emotion Grouped Bar Chart -->
+  <div class="col-md-6 mb-4">
+    <div class="card-glass" style="height: 400px;">
+      <h5 class="text-white mb-4" style="color: var(--text-primary) !important;">Emotion Splits Comparison</h5>
+      <div style="height: 300px; position: relative;">
+        <canvas id="compareEmotionChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Pie Charts Side by Side -->
+<div class="row">
+  <div class="col-md-6 mb-4">
+    <div class="card-glass" style="height: 350px;">
+      <h5 class="text-white text-center mb-3" style="color: var(--text-primary) !important;">{{ topic_a }} Distribution</h5>
+      <div style="height: 250px; position: relative;">
+        <canvas id="pieChartA"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6 mb-4">
+    <div class="card-glass" style="height: 350px;">
+      <h5 class="text-white text-center mb-3" style="color: var(--text-primary) !important;">{{ topic_b }} Distribution</h5>
+      <div style="height: 250px; position: relative;">
+        <canvas id="pieChartB"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Keywords and Tags side-by-side lists -->
+<div class="row">
+  <div class="col-md-6 mb-4">
+    <div class="card-glass" style="min-height: 280px;">
+      <h5 class="text-white mb-3" style="color: var(--text-primary) !important;">{{ topic_a }} Top Keywords & Tags</h5>
+      <h6 class="text-muted small">Hashtags</h6>
+      <div class="mb-3">
+        {% for tag in metrics_a.top_hashtags %}
+          <span class="keyword-badge" style="border-color: var(--primary-color); color: var(--primary-color);">{{ tag }}</span>
+        {% empty %}
+          <span class="text-muted small">No hashtags found.</span>
+        {% endfor %}
+      </div>
+      <h6 class="text-muted small">Keywords</h6>
+      <div>
+        {% for keyword in metrics_a.top_keywords %}
+          <span class="keyword-badge">{{ keyword }}</span>
+        {% empty %}
+          <span class="text-muted small">No keywords found.</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6 mb-4">
+    <div class="card-glass" style="min-height: 280px;">
+      <h5 class="text-white mb-3" style="color: var(--text-primary) !important;">{{ topic_b }} Top Keywords & Tags</h5>
+      <h6 class="text-muted small">Hashtags</h6>
+      <div class="mb-3">
+        {% for tag in metrics_b.top_hashtags %}
+          <span class="keyword-badge" style="border-color: #ec4899; color: #ec4899;">{{ tag }}</span>
+        {% empty %}
+          <span class="text-muted small">No hashtags found.</span>
+        {% endfor %}
+      </div>
+      <h6 class="text-muted small">Keywords</h6>
+      <div>
+        {% for keyword in metrics_b.top_keywords %}
+          <span class="keyword-badge">{{ keyword }}</span>
+        {% empty %}
+          <span class="text-muted small">No keywords found.</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Influential Tweets Table -->
+<div class="row">
+  <!-- Influential Topic A -->
+  <div class="col-md-6 mb-4">
+    <div class="card-glass">
+      <h5 class="text-white mb-3" style="color: var(--text-primary) !important;"><i class="fa-solid fa-fire text-warning"></i> Influential Tweets ({{ topic_a }})</h5>
+      {% for tweet in metrics_a.influential %}
+        <div class="p-3 mb-3" style="background: var(--bg-main); border-radius: 12px; border: 1px solid var(--border-color);">
+          <strong style="color: var(--primary-color);">@{{ tweet.username }}</strong>
+          {% if tweet.verified %}<span class="badge badge-primary ml-1" style="font-size: 9px;">Verified</span>{% endif %}
+          <p class="mt-2 mb-2" style="color: var(--text-primary);">{{ tweet.text }}</p>
+          <span class="text-muted small"><i class="fa-solid fa-heart text-danger"></i> {{ tweet.likes }} | <i class="fa-solid fa-retweet text-success"></i> {{ tweet.retweets }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Influential Topic B -->
+  <div class="col-md-6 mb-4">
+    <div class="card-glass">
+      <h5 class="text-white mb-3" style="color: var(--text-primary) !important;"><i class="fa-solid fa-fire text-warning"></i> Influential Tweets ({{ topic_b }})</h5>
+      {% for tweet in metrics_b.influential %}
+        <div class="p-3 mb-3" style="background: var(--bg-main); border-radius: 12px; border: 1px solid var(--border-color);">
+          <strong style="color: #ec4899;">@{{ tweet.username }}</strong>
+          {% if tweet.verified %}<span class="badge badge-primary ml-1" style="font-size: 9px;">Verified</span>{% endif %}
+          <p class="mt-2 mb-2" style="color: var(--text-primary);">{{ tweet.text }}</p>
+          <span class="text-muted small"><i class="fa-solid fa-heart text-danger"></i> {{ tweet.likes }} | <i class="fa-solid fa-retweet text-success"></i> {{ tweet.retweets }}</span>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- Raw data hidden container parsed by Javascript for client-side filter computation -->
+<div style="display: none;">
+  {% for t in metrics_a.tweets %}
+    <div class="raw-tweet-a" data-likes="{{ t.likes }}" data-retweets="{{ t.retweets }}" data-verified="{{ t.verified|lower }}" data-sentiment="{{ t.sentiment }}" data-emotion="{{ t.emotion }}" data-text="{{ t.text|lower }}"></div>
+  {% endfor %}
+  {% for t in metrics_b.tweets %}
+    <div class="raw-tweet-b" data-likes="{{ t.likes }}" data-retweets="{{ t.retweets }}" data-verified="{{ t.verified|lower }}" data-sentiment="{{ t.sentiment }}" data-emotion="{{ t.emotion }}" data-text="{{ t.text|lower }}"></div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Chart handles
+  let barChart = null;
+  let emotionChart = null;
+  let pieChartA = null;
+  let pieChartB = null;
+
+  // Initialize Sentiment Bar Chart
+  const barCtx = document.getElementById('compareBarChart').getContext('2d');
+  barChart = new Chart(barCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Positive %', 'Neutral %', 'Negative %'],
+      datasets: [
+        {
+          label: '{{ topic_a }}',
+          data: [{{ metrics_a.pos_pct }}, {{ metrics_a.neu_pct }}, {{ metrics_a.neg_pct }}],
+          backgroundColor: 'rgba(59, 130, 246, 0.6)',
+          borderColor: 'rgba(59, 130, 246, 1)',
+          borderWidth: 2,
+          borderRadius: 5
+        },
+        {
+          label: '{{ topic_b }}',
+          data: [{{ metrics_b.pos_pct }}, {{ metrics_b.neu_pct }}, {{ metrics_b.neg_pct }}],
+          backgroundColor: 'rgba(236, 72, 153, 0.6)',
+          borderColor: 'rgba(236, 72, 153, 1)',
+          borderWidth: 2,
+          borderRadius: 5
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: '#9ca3af' } },
+        y: { ticks: { color: '#9ca3af' }, min: 0, max: 100 }
+      }
+    }
+  });
+
+  // Initialize Emotion Chart
+  const emotionCtx = document.getElementById('compareEmotionChart').getContext('2d');
+  emotionChart = new Chart(emotionCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Worry', 'Happiness', 'Sadness', 'Love', 'Hate'],
+      datasets: [
+        {
+          label: '{{ topic_a }}',
+          data: [
+            {{ metrics_a.emotions.worry }}, 
+            {{ metrics_a.emotions.happiness }}, 
+            {{ metrics_a.emotions.sadness }}, 
+            {{ metrics_a.emotions.love }}, 
+            {{ metrics_a.emotions.hate }}
+          ],
+          backgroundColor: 'rgba(59, 130, 246, 0.6)',
+          borderColor: 'rgba(59, 130, 246, 1)',
+          borderWidth: 2,
+          borderRadius: 5
+        },
+        {
+          label: '{{ topic_b }}',
+          data: [
+            {{ metrics_b.emotions.worry }}, 
+            {{ metrics_b.emotions.happiness }}, 
+            {{ metrics_b.emotions.sadness }}, 
+            {{ metrics_b.emotions.love }}, 
+            {{ metrics_b.emotions.hate }}
+          ],
+          backgroundColor: 'rgba(236, 72, 153, 0.6)',
+          borderColor: 'rgba(236, 72, 153, 1)',
+          borderWidth: 2,
+          borderRadius: 5
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: '#9ca3af' } },
+        y: { ticks: { color: '#9ca3af' } }
+      }
+    }
+  });
+
+  // Pie chart A
+  const pieCtxA = document.getElementById('pieChartA').getContext('2d');
+  pieChartA = new Chart(pieCtxA, {
+    type: 'pie',
+    data: {
+      labels: ['Positive', 'Neutral', 'Negative'],
+      datasets: [{
+        data: [{{ metrics_a.pos_pct }}, {{ metrics_a.neu_pct }}, {{ metrics_a.neg_pct }}],
+        backgroundColor: ['rgba(16, 185, 129, 0.6)', 'rgba(156, 163, 175, 0.6)', 'rgba(239, 68, 68, 0.6)'],
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af' } } }
+    }
+  });
+
+  // Pie chart B
+  const pieCtxB = document.getElementById('pieChartB').getContext('2d');
+  pieChartB = new Chart(pieCtxB, {
+    type: 'pie',
+    data: {
+      labels: ['Positive', 'Neutral', 'Negative'],
+      datasets: [{
+        data: [{{ metrics_b.pos_pct }}, {{ metrics_b.neu_pct }}, {{ metrics_b.neg_pct }}],
+        backgroundColor: ['rgba(16, 185, 129, 0.6)', 'rgba(156, 163, 175, 0.6)', 'rgba(239, 68, 68, 0.6)'],
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { color: '#9ca3af' } } }
+    }
+  });
+
+  // Reactive Multi-Filter logic
+  function applyGlobalFilters() {
+    const minLikes = parseInt(document.getElementById('filterLikes').value) || 0;
+    const minRetweets = parseInt(document.getElementById('filterRetweets').value) || 0;
+    const keyword = document.getElementById('filterKeyword').value.toLowerCase().trim();
+    const verifiedOnly = document.getElementById('filterVerified').checked;
+
+    // Filter Topic A
+    let posA = 0, neuA = 0, negA = 0, totalA = 0;
+    let worryA = 0, happinessA = 0, sadnessA = 0, loveA = 0, hateA = 0;
+    document.querySelectorAll('.raw-tweet-a').forEach(t => {
+      const likes = parseInt(t.getAttribute('data-likes')) || 0;
+      const retweets = parseInt(t.getAttribute('data-retweets')) || 0;
+      const verified = t.getAttribute('data-verified') === 'true';
+      const sentiment = t.getAttribute('data-sentiment');
+      const emotion = t.getAttribute('data-emotion');
+      const text = t.getAttribute('data-text');
+
+      let show = true;
+      if (likes < minLikes) show = false;
+      if (retweets < minRetweets) show = false;
+      if (verifiedOnly && !verified) show = false;
+      if (keyword && !text.includes(keyword)) show = false;
+
+      if (show) {
+        totalA++;
+        if (sentiment === 'Positive') posA++;
+        else if (sentiment === 'Negative') negA++;
+        else neuA++;
+
+        if (emotion === 'worry') worryA++;
+        else if (emotion === 'happiness') happinessA++;
+        else if (emotion === 'sadness') sadnessA++;
+        else if (emotion === 'love') loveA++;
+        else if (emotion === 'hate') hateA++;
+      }
+    });
+
+    // Filter Topic B
+    let posB = 0, neuB = 0, negB = 0, totalB = 0;
+    let worryB = 0, happinessB = 0, sadnessB = 0, loveB = 0, hateB = 0;
+    document.querySelectorAll('.raw-tweet-b').forEach(t => {
+      const likes = parseInt(t.getAttribute('data-likes')) || 0;
+      const retweets = parseInt(t.getAttribute('data-retweets')) || 0;
+      const verified = t.getAttribute('data-verified') === 'true';
+      const sentiment = t.getAttribute('data-sentiment');
+      const emotion = t.getAttribute('data-emotion');
+      const text = t.getAttribute('data-text');
+
+      let show = true;
+      if (likes < minLikes) show = false;
+      if (retweets < minRetweets) show = false;
+      if (verifiedOnly && !verified) show = false;
+      if (keyword && !text.includes(keyword)) show = false;
+
+      if (show) {
+        totalB++;
+        if (sentiment === 'Positive') posB++;
+        else if (sentiment === 'Negative') negB++;
+        else neuB++;
+
+        if (emotion === 'worry') worryB++;
+        else if (emotion === 'happiness') happinessB++;
+        else if (emotion === 'sadness') sadnessB++;
+        else if (emotion === 'love') loveB++;
+        else if (emotion === 'hate') hateB++;
+      }
+    });
+
+    // Recalculate percentages
+    const posA_pct = totalA > 0 ? Math.round(posA / totalA * 100) : 0;
+    const neuA_pct = totalA > 0 ? Math.round(neuA / totalA * 100) : 0;
+    const negA_pct = totalA > 0 ? Math.round(negA / totalA * 100) : 0;
+
+    const posB_pct = totalB > 0 ? Math.round(posB / totalB * 100) : 0;
+    const neuB_pct = totalB > 0 ? Math.round(neuB / totalB * 100) : 0;
+    const negB_pct = totalB > 0 ? Math.round(negB / totalB * 100) : 0;
+
+    // Update comparative bar datasets
+    barChart.data.datasets[0].data = [posA_pct, neuA_pct, negA_pct];
+    barChart.data.datasets[1].data = [posB_pct, neuB_pct, negB_pct];
+    barChart.update();
+
+    // Update comparative emotion datasets
+    emotionChart.data.datasets[0].data = [worryA, happinessA, sadnessA, loveA, hateA];
+    emotionChart.data.datasets[1].data = [worryB, happinessB, sadnessB, loveB, hateB];
+    emotionChart.update();
+
+    // Update individual Pie charts
+    pieChartA.data.datasets[0].data = [posA_pct, neuA_pct, negA_pct];
+    pieChartA.update();
+
+    pieChartB.data.datasets[0].data = [posB_pct, neuB_pct, negB_pct];
+    pieChartB.update();
+  }
+
+  document.getElementById('filterLikes').addEventListener('input', applyGlobalFilters);
+  document.getElementById('filterRetweets').addEventListener('input', applyGlobalFilters);
+  document.getElementById('filterKeyword').addEventListener('input', applyGlobalFilters);
+  document.getElementById('filterVerified').addEventListener('change', applyGlobalFilters);
+</script>
+{% endblock %}

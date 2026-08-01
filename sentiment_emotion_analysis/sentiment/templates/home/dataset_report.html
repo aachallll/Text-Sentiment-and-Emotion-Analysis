@@ -1,0 +1,184 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}Model Evaluation Report - Kaggle Dataset{% endblock %}
+{% block active_dataset %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+  .metric-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #10b981;
+  }
+  .cm-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+  }
+  .cm-table th, .cm-table td {
+    padding: 12px;
+    border: 1px solid var(--border-color);
+    text-align: center;
+    color: var(--text-secondary);
+  }
+  .cm-table th {
+    background: var(--border-color);
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-5">
+  <div class="col-md-12 text-center">
+    <h1 style="font-weight: 800; color: var(--text-primary);">Kaggle Dataset Analysis Mode</h1>
+    <p class="text-muted">Model Training & Classifier Evaluation Report (text_emotion.csv)</p>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="row">
+  <div class="col-md-3">
+    <div class="card-glass text-center">
+      <h6 class="text-muted">Model Accuracy</h6>
+      <div class="metric-value">{{ metrics.trained_model.accuracy }}%</div>
+      <p class="text-muted small mb-0">Total correct predictions</p>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card-glass text-center">
+      <h6 class="text-muted">Model Precision</h6>
+      <div class="metric-value">{{ metrics.trained_model.precision }}%</div>
+      <p class="text-muted small mb-0">Correctness of positive labels</p>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card-glass text-center">
+      <h6 class="text-muted">Model Recall</h6>
+      <div class="metric-value">{{ metrics.trained_model.recall }}%</div>
+      <p class="text-muted small mb-0">Sensitivity split score</p>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card-glass text-center">
+      <h6 class="text-muted">F1-Score</h6>
+      <div class="metric-value">{{ metrics.trained_model.f1 }}%</div>
+      <p class="text-muted small mb-0">Harmonic mean indicator</p>
+    </div>
+  </div>
+</div>
+
+<!-- Charts & Tables -->
+<div class="row mt-4">
+  <!-- Model Accuracy Comparison Grouped Bar Chart -->
+  <div class="col-md-6">
+    <div class="card-glass" style="height: 420px;">
+      <h5 class="text-white mb-4" style="color: var(--text-primary) !important;">Model Performance Comparison</h5>
+      <div style="height: 300px; position: relative;">
+        <canvas id="accuracyChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3x3 Confusion Matrix -->
+  <div class="col-md-6">
+    <div class="card-glass" style="height: 420px; overflow-y: auto;">
+      <h5 class="text-white mb-3" style="color: var(--text-primary) !important;">Confusion Matrix (Trained Classifier)</h5>
+      <p class="text-muted small">Shows cross-predictions between Positive, Neutral, and Negative classes.</p>
+      <table class="cm-table">
+        <thead>
+          <tr>
+            <th>Actual \ Predicted</th>
+            <th>Positive</th>
+            <th>Neutral</th>
+            <th>Negative</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th>Positive</th>
+            <td style="background: rgba(16, 185, 129, 0.1); color: #10b981; font-weight: 600;">
+              {{ metrics.trained_model.confusion_matrix.0.0 }}
+            </td>
+            <td>{{ metrics.trained_model.confusion_matrix.0.1 }}</td>
+            <td>{{ metrics.trained_model.confusion_matrix.0.2 }}</td>
+          </tr>
+          <tr>
+            <th>Neutral</th>
+            <td>{{ metrics.trained_model.confusion_matrix.1.0 }}</td>
+            <td style="background: rgba(16, 185, 129, 0.1); color: #10b981; font-weight: 600;">
+              {{ metrics.trained_model.confusion_matrix.1.1 }}
+            </td>
+            <td>{{ metrics.trained_model.confusion_matrix.1.2 }}</td>
+          </tr>
+          <tr>
+            <th>Negative</th>
+            <td>{{ metrics.trained_model.confusion_matrix.2.0 }}</td>
+            <td>{{ metrics.trained_model.confusion_matrix.2.1 }}</td>
+            <td style="background: rgba(16, 185, 129, 0.1); color: #10b981; font-weight: 600;">
+              {{ metrics.trained_model.confusion_matrix.2.2 }}
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Grouped Bar Chart Setup -->
+<script>
+  const ctx = document.getElementById('accuracyChart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['TextBlob', 'VADER', 'Trained Classifier (TF-IDF)', 'Twitter-RoBERTa'],
+      datasets: [{
+        label: 'Accuracy %',
+        data: [
+          {{ metrics.textblob.accuracy }},
+          {{ metrics.vader.accuracy }},
+          {{ metrics.trained_model.accuracy }},
+          {{ metrics.roberta.accuracy }}
+        ],
+        backgroundColor: [
+          'rgba(156, 163, 175, 0.6)', // TextBlob (grey)
+          'rgba(245, 158, 11, 0.6)',  // VADER (orange)
+          'rgba(16, 185, 129, 0.6)',  // Trained classifier (green)
+          'rgba(56, 189, 248, 0.6)'   // RoBERTa (blue)
+        ],
+        borderColor: [
+          'rgba(156, 163, 175, 1)',
+          'rgba(245, 158, 11, 1)',
+          'rgba(16, 185, 129, 1)',
+          'rgba(56, 189, 248, 1)'
+        ],
+        borderWidth: 2,
+        borderRadius: 5
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255, 255, 255, 0.05)' },
+          ticks: { color: '#9ca3af' }
+        },
+        y: {
+          grid: { color: 'rgba(255, 255, 255, 0.05)' },
+          ticks: { color: '#9ca3af' },
+          min: 0,
+          max: 100
+        }
+      }
+    }
+  });
+</script>
+{% endblock %}

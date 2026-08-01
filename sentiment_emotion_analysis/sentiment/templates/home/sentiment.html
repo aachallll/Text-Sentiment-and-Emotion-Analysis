@@ -1,0 +1,62 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}Sentiment Analysis Selection - Tweet Analyzer{% endblock %}
+{% block active_sent %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+  .feature-card {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    padding: 35px;
+    text-align: center;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-decoration: none !important;
+    min-height: 250px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+  .feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    border-color: var(--primary-color);
+  }
+  .feature-icon {
+    font-size: 44px;
+    color: var(--primary-color);
+    margin-bottom: 20px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-5">
+  <div class="col-md-12 text-center">
+    <h1 style="font-weight: 800; color: var(--text-primary);">Sentiment Analysis</h1>
+    <p class="text-muted">Choose your input mode to analyze and categorize text polarities.</p>
+  </div>
+</div>
+
+<div class="row mt-4 justify-content-center">
+  <div class="col-md-5 mb-4">
+    <a href="/sentiment/import" class="feature-card">
+      <i class="fa-solid fa-cloud-arrow-down feature-icon"></i>
+      <h3 style="font-weight: 700; color: var(--text-primary);">Import Tweets</h3>
+      <p class="text-muted mb-0">Import live tweet streams from Twitter (X) profiles and hashtags, or search the Kaggle CSV dataset.</p>
+    </a>
+  </div>
+  <div class="col-md-5 mb-4">
+    <a href="/sentiment/type" class="feature-card">
+      <i class="fa-solid fa-keyboard feature-icon"></i>
+      <h3 style="font-weight: 700; color: var(--text-primary);">Type Single Tweet</h3>
+      <p class="text-muted mb-0">Input a single custom raw tweet sentence manually and evaluate positive/negative polarity details.</p>
+    </a>
+  </div>
+</div>
+{% endblock %}

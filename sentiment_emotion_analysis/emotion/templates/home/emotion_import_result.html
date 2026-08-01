@@ -1,0 +1,377 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}Emotion Dashboard - {{ handle }}{% endblock %}
+{% block active_emotion %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+  .metric-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+  .tbl-header {
+    background-color: var(--border-color);
+    border-radius: 12px 12px 0 0;
+    border: 1px solid var(--border-color);
+  }
+  .tbl-content {
+    max-height: 400px;
+    overflow-y: auto;
+    border-radius: 0 0 12px 12px;
+    border: 1px solid var(--border-color);
+    background: var(--sidebar-bg);
+  }
+  table {
+    width: 100%;
+    table-layout: fixed;
+  }
+  th, td {
+    padding: 15px;
+    text-align: left;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+  }
+  th {
+    font-weight: 600;
+    color: var(--text-primary);
+    background: var(--border-color);
+  }
+  .btn-export {
+    background: var(--accent-hover);
+    border: 1px solid var(--primary-color);
+    color: var(--primary-color);
+    font-weight: 600;
+    border-radius: 10px;
+    padding: 10px 20px;
+    transition: all 0.3s ease;
+  }
+  .btn-export:hover {
+    background: var(--primary-color);
+    color: white;
+  }
+  .keyword-badge {
+    display: inline-block;
+    background: var(--border-color);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 5px 12px;
+    border-radius: 20px;
+    margin: 4px;
+    font-size: 13px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-5">
+  <div class="col-md-8">
+    <h1 style="font-weight: 800; color: var(--text-primary);">Emotion Dashboard</h1>
+    <p class="text-muted">
+      Analysis results for Query: <strong style="color: var(--text-primary);">{{ handle }}</strong> | 
+      <span class="badge p-2" style="font-size: 12px; background: var(--accent-hover); border: 1px solid var(--primary-color); color: var(--primary-color); border-radius: 12px;">
+        MODE: Live Twitter API
+      </span>
+    </p>
+  </div>
+  <div class="col-md-4 text-md-right">
+    <div class="dropdown">
+      <button class="btn btn-export dropdown-toggle" type="button" id="exportMenu" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+        <i class="fa-solid fa-download mr-1"></i> Export Report
+      </button>
+      <div class="dropdown-menu dropdown-menu-right bg-dark border border-secondary" aria-labelledby="exportMenu">
+        <a class="dropdown-item text-white" href="/emotion/export-csv/">Export CSV</a>
+        <a class="dropdown-item text-white" href="/emotion/export-excel/">Export Excel (XLS)</a>
+        <a class="dropdown-item text-white" href="/emotion/export-pdf/">Export Text PDF</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Metrics -->
+<div class="row">
+  <div class="col-md-4">
+    <div class="card-glass text-center">
+      <h6 class="text-muted">Toxicity Percentage</h6>
+      <div class="metric-value" style="color: #ef4444;">{{ toxicity }}%</div>
+      <p class="text-muted small mb-0">Offensive/toxic keywords detected</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card-glass text-center">
+      <h6 class="text-muted">Bot Likelihood</h6>
+      <div class="metric-value" style="color: #f59e0b;">{{ bot_score }}%</div>
+      <p class="text-muted small mb-0">Automated posting frequency score</p>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card-glass text-center">
+      <h6 class="text-muted">Analysis Status</h6>
+      <div class="metric-value" style="color: #10b981;">Complete</div>
+      <p class="text-muted small mb-0">Fine-grained emotion extraction finished</p>
+    </div>
+  </div>
+</div>
+
+<!-- AI Summary -->
+<div class="card-glass">
+  <h5 style="color: var(--primary-color); font-weight: 700;"><i class="fa-solid fa-robot"></i> AI Summary Insight</h5>
+  <p class="lead mb-0" style="color: var(--text-primary); line-height: 1.6; font-style: italic;">"{{ summary }}"</p>
+</div>
+
+<!-- Interactive Filters -->
+<div class="card-glass">
+  <h5 class="text-white mb-3" style="font-weight: 600; color: var(--text-primary) !important;">Metadata & Text Filters</h5>
+  <div class="row">
+    <div class="col-md-3">
+      <label for="filterLikes" class="text-muted small">Min Likes</label>
+      <input type="number" id="filterLikes" class="form-control" value="0" min="0">
+    </div>
+    <div class="col-md-3">
+      <label for="filterRetweets" class="text-muted small">Min Retweets</label>
+      <input type="number" id="filterRetweets" class="form-control" value="0" min="0">
+    </div>
+    <div class="col-md-3">
+      <label for="filterLang" class="text-muted small">Language</label>
+      <select id="filterLang" class="form-control">
+        <option value="all">All Languages</option>
+        <option value="en">English (en)</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
+    <div class="col-md-3 d-flex align-items-center">
+      <div class="custom-control custom-checkbox mt-3">
+        <input type="checkbox" class="custom-control-input" id="filterVerified">
+        <label class="custom-control-label text-muted" for="filterVerified">Verified only</label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Grid -->
+<div class="row">
+  <div class="col-md-6">
+    <div class="card-glass">
+      <h5 class="text-white mb-4" style="color: var(--text-primary) !important;">Emotion Distribution</h5>
+      <div style="height: 300px; position: relative;">
+        <canvas id="emotionPie"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card-glass">
+      <h5 class="text-white mb-4" style="color: var(--text-primary) !important;">Historical Sentiment Trend</h5>
+      <div style="height: 300px; position: relative;">
+        <canvas id="trendLine"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Aspects and Keywords -->
+<div class="row">
+  <div class="col-md-6">
+    <div class="card-glass" style="min-height: 350px;">
+      <h5 class="text-white mb-4" style="color: var(--text-primary) !important;">Aspect-Based Sentiment</h5>
+      {% if aspects %}
+        {% for aspect, counts in aspects.items %}
+          <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+              <span style="font-weight: 600; text-transform: capitalize; color: var(--text-primary);">{{ aspect }}</span>
+              <span class="text-muted">Pos: {{ counts.Positive }} | Neg: {{ counts.Negative }}</span>
+            </div>
+            <div class="progress" style="height: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px;">
+              <div class="progress-bar bg-success" role="progressbar" style="width: {% widthratio counts.Positive counts.Positive|add:counts.Negative|add:counts.Neutral 100 %}%"></div>
+              <div class="progress-bar bg-danger" role="progressbar" style="width: {% widthratio counts.Negative counts.Positive|add:counts.Negative|add:counts.Neutral 100 %}%"></div>
+            </div>
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted">No explicit product aspects/nouns detected in the analyzed tweets.</p>
+      {% endif %}
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="card-glass" style="min-height: 350px;">
+      <h5 class="text-white mb-4" style="color: var(--text-primary) !important;">Extracted Tags & Keywords</h5>
+      <h6 class="text-muted">Hashtags</h6>
+      <div class="mb-4">
+        {% for tag in top_hashtags %}
+          <span class="keyword-badge" style="border-color: var(--primary-color); color: var(--primary-color);">{{ tag }}</span>
+        {% empty %}
+          <span class="text-muted">No hashtags found.</span>
+        {% endfor %}
+      </div>
+      <h6 class="text-muted">Key Keywords</h6>
+      <div>
+        {% for keyword in top_keywords %}
+          <span class="keyword-badge">{{ keyword }}</span>
+        {% empty %}
+          <span class="text-muted">No keywords found.</span>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Raw Tweets table -->
+<div class="card-glass">
+  <h5 class="text-white mb-4" style="color: var(--text-primary) !important;">Analyzed Tweets Data</h5>
+  <div class="tbl-header">
+    <table cellpadding="0" cellspacing="0" border="0">
+      <thead>
+        <tr>
+          <th width="75%">Tweet Content</th>
+          <th width="25%">Predicted Emotion</th>
+        </tr>
+      </thead>
+    </table>
+  </div>
+  <div class="tbl-content">
+    <table cellpadding="0" cellspacing="0" border="0">
+      <tbody id="tweetsTableBody">
+        {% for tweet in list_of_tweets_and_emotions %}
+          <tr class="tweet-row" data-likes="{{ tweet.likes }}" data-retweets="{{ tweet.retweets }}" data-verified="{{ tweet.verified|lower }}" data-lang="{{ tweet.lang|lower }}" data-emotion="{{ tweet.emotion }}">
+            <td width="75%">
+              <strong style="color: var(--primary-color);">@{{ tweet.username }}</strong> 
+              {% if tweet.verified %}<span class="badge badge-primary p-1 ml-1" style="font-size: 9px; border-radius: 4px;">Verified</span>{% endif %}
+              <span class="text-muted d-block" style="font-size: 11px;">Posted: {{ tweet.created_at }}</span>
+              <p class="mt-2 mb-2" style="color: var(--text-primary);">{{ tweet.text }}</p>
+              <span class="text-muted" style="font-size: 11px;">Likes: {{ tweet.likes }} | Retweets: {{ tweet.retweets }} | Replies: {{ tweet.replies }}</span>
+            </td>
+            <td width="25%">
+              <span class="badge badge-info text-capitalize" style="background: var(--accent-hover); border: 1px solid var(--primary-color); color: var(--primary-color);">
+                {{ tweet.emotion }}
+              </span>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Charts Scripts -->
+<script>
+  let emotionChart = null;
+
+  // Emotion Distribution Doughnut Chart
+  const pieCtx = document.getElementById('emotionPie').getContext('2d');
+  emotionChart = new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Worry', 'Happiness', 'Sadness', 'Love', 'Hate'],
+      datasets: [{
+        data: [
+          {{ detailed_counts.worry }}, 
+          {{ detailed_counts.happiness }}, 
+          {{ detailed_counts.sadness }}, 
+          {{ detailed_counts.love }}, 
+          {{ detailed_counts.hate }}
+        ],
+        backgroundColor: [
+          'rgba(245, 158, 11, 0.7)',
+          'rgba(16, 185, 129, 0.7)',
+          'rgba(59, 130, 246, 0.7)',
+          'rgba(236, 72, 153, 0.7)',
+          'rgba(239, 68, 68, 0.7)'
+        ],
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 2
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: { color: '#9ca3af' }
+        }
+      }
+    }
+  });
+
+  // Historical Sentiment Trend Line Chart
+  const lineCtx = document.getElementById('trendLine').getContext('2d');
+  new Chart(lineCtx, {
+    type: 'line',
+    data: {
+      labels: [{% for t in trends %}'{{ t.date }}',{% endfor %}],
+      datasets: [{
+        label: 'Sentiment Index',
+        data: [{% for t in trends %}{{ t.score }},{% endfor %}],
+        borderColor: '#38bdf8',
+        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+        fill: true,
+        tension: 0.4,
+        borderWidth: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255, 255, 255, 0.05)' },
+          ticks: { color: '#9ca3af' }
+        },
+        y: {
+          grid: { color: 'rgba(255, 255, 255, 0.05)' },
+          ticks: { color: '#9ca3af' }
+        }
+      }
+    }
+  });
+
+  // Live Filtering JS
+  function applyFilters() {
+    const minLikes = parseInt(document.getElementById('filterLikes').value) || 0;
+    const minRetweets = parseInt(document.getElementById('filterRetweets').value) || 0;
+    const langFilter = document.getElementById('filterLang').value;
+    const verifiedOnly = document.getElementById('filterVerified').checked;
+
+    let worry = 0, happiness = 0, sadness = 0, love = 0, hate = 0;
+
+    document.querySelectorAll('.tweet-row').forEach(row => {
+      const likes = parseInt(row.getAttribute('data-likes')) || 0;
+      const retweets = parseInt(row.getAttribute('data-retweets')) || 0;
+      const verified = row.getAttribute('data-verified') === 'true';
+      const lang = row.getAttribute('data-lang');
+      const emotion = row.getAttribute('data-emotion').toLowerCase();
+
+      let show = true;
+      if (likes < minLikes) show = false;
+      if (retweets < minRetweets) show = false;
+      if (verifiedOnly && !verified) show = false;
+      if (langFilter !== 'all' && lang !== langFilter) show = false;
+
+      if (show) {
+        row.style.display = '';
+        if (emotion.includes('worry')) worry++;
+        else if (emotion.includes('happi')) happiness++;
+        else if (emotion.includes('sad')) sadness++;
+        else if (emotion.includes('love')) love++;
+        else if (emotion.includes('hate')) hate++;
+      } else {
+        row.style.display = 'none';
+      }
+    });
+
+    // Update the emotion pie chart dynamically
+    emotionChart.data.datasets[0].data = [worry, happiness, sadness, love, hate];
+    emotionChart.update();
+  }
+
+  document.getElementById('filterLikes').addEventListener('input', applyFilters);
+  document.getElementById('filterRetweets').addEventListener('input', applyFilters);
+  document.getElementById('filterLang').addEventListener('change', applyFilters);
+  document.getElementById('filterVerified').addEventListener('change', applyFilters);
+</script>
+{% endblock %}

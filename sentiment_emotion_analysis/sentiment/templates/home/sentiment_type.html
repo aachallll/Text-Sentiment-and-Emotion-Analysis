@@ -1,0 +1,55 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+block title %}Type Tweet - Sentiment Analysis{% endblock %}
+{% block active_sent %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+  .type-card {
+    max-width: 600px;
+    margin: 50px auto 0 auto;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    padding: 40px;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+  }
+  .btn-submit {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+    font-weight: 600;
+    height: 50px;
+    border-radius: 12px !important;
+    width: 100%;
+    transition: transform 0.2s ease;
+  }
+  .btn-submit:hover {
+    transform: translateY(-2px);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-md-12 text-center">
+    <h1 style="font-weight: 800; color: var(--text-primary);">Type Custom Tweet</h1>
+    <p class="text-muted">Manually enter raw text content to evaluate sentiment analysis classification output.</p>
+  </div>
+</div>
+
+<div class="type-card">
+  <h4 class="text-center mb-4" style="font-weight: 700; color: var(--text-primary);">Analyze Text Sentiment</h4>
+  
+  <form method="POST">
+    {% csrf_token %}
+    
+    <div class="form-group mb-4">
+      <label for="sentiment_typed_tweet" style="font-weight: 500; color: var(--text-secondary);">Enter Tweet Text</label>
+      <textarea id="sentiment_typed_tweet" name="sentiment_typed_tweet" class="form-control" placeholder="Type your custom tweet message here..." required style="height: 120px; border-radius: 10px;"></textarea>
+    </div>
+
+    <button type="submit" class="btn btn-submit mt-2">Classify Polarity <i class="fa-solid fa-bolt ml-1"></i></button>
+  </form>
+</div>
+{% endblock %}

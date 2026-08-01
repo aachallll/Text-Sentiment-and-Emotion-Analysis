@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>{% block title %}Tweet Analyzer{% endblock %}</title>
+    <!-- Fonts and Icons -->
+    <link href="https://fonts.googleapis.com/css?family=Poppins:300,400,500,600,700" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'home/css/open-iconic-bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'home/css/style.css' %}">
+    <!-- ChartJS and Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+      :root {
+        --bg-main: #f8fafc;
+        --sidebar-bg: #ffffff;
+        --card-bg: #ffffff;
+        --text-primary: #0f172a;
+        --text-secondary: #64748b;
+        --border-color: #f1f5f9;
+        --primary-color: #3b82f6;
+        --accent-hover: #eff6ff;
+      }
+      
+      body.dark-mode {
+        --bg-main: #0b0f19;
+        --sidebar-bg: #111827;
+        --card-bg: rgba(255, 255, 255, 0.03);
+        --text-primary: #f3f4f6;
+        --text-secondary: #9ca3af;
+        --border-color: rgba(255, 255, 255, 0.08);
+        --primary-color: #38bdf8;
+        --accent-hover: rgba(56, 189, 248, 0.1);
+      }
+
+      body {
+        background-color: var(--bg-main) !important;
+        color: var(--text-primary) !important;
+        font-family: 'Poppins', sans-serif;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        transition: background-color 0.3s ease;
+      }
+
+      /* Sidebar styles */
+      .sidebar {
+        width: 260px;
+        background-color: var(--sidebar-bg);
+        border-right: 1px solid var(--border-color);
+        display: flex;
+        flex-direction: column;
+        padding: 24px;
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 100;
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+      }
+
+      .logo-container {
+        display: flex;
+        align-items: center;
+        margin-bottom: 30px;
+      }
+
+      .logo-icon {
+        color: var(--primary-color);
+        font-size: 24px;
+        margin-right: 10px;
+      }
+
+      .logo-text {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .nav-menu {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        flex-grow: 1;
+      }
+
+      .nav-item-link {
+        display: flex;
+        align-items: center;
+        padding: 12px 16px;
+        color: var(--text-secondary);
+        font-weight: 500;
+        border-radius: 12px;
+        text-decoration: none !important;
+        margin-bottom: 8px;
+        transition: all 0.2s ease;
+      }
+
+      .nav-item-link i {
+        margin-right: 12px;
+        font-size: 18px;
+      }
+
+      .nav-item-link:hover, .nav-item-link.active {
+        color: var(--primary-color) !important;
+        background-color: var(--accent-hover);
+      }
+
+      .ai-assistant-card {
+        background: var(--accent-hover);
+        border: 1px solid var(--border-color);
+        border-radius: 16px;
+        padding: 20px;
+        text-align: center;
+        margin-top: auto;
+      }
+
+      .ai-assistant-btn {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 8px 16px;
+        font-weight: 600;
+        width: 100%;
+        margin-top: 10px;
+        cursor: pointer;
+        transition: transform 0.2s ease;
+      }
+
+      .ai-assistant-btn:hover {
+        transform: translateY(-2px);
+      }
+
+      /* Main content container */
+      .main-content {
+        margin-left: 260px;
+        flex-grow: 1;
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+
+      /* Top Header */
+      .top-header {
+        height: 70px;
+        background-color: var(--sidebar-bg);
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 40px;
+        position: sticky;
+        top: 0;
+        z-index: 90;
+        transition: background-color 0.3s ease, border-color 0.3s ease;
+      }
+
+      .search-bar-container {
+        display: flex;
+        align-items: center;
+        background-color: var(--bg-main);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 6px 12px;
+        width: 350px;
+      }
+
+      .search-bar-container input {
+        border: none;
+        background: transparent;
+        color: var(--text-primary);
+        outline: none;
+        margin-left: 8px;
+        width: 100%;
+      }
+
+      .header-right {
+        display: flex;
+        align-items: center;
+      }
+
+      .header-btn {
+        background: transparent;
+        border: none;
+        color: var(--text-secondary);
+        font-size: 20px;
+        margin-right: 20px;
+        cursor: pointer;
+        position: relative;
+      }
+
+      .badge-dot {
+        position: absolute;
+        top: 0;
+        right: 0;
+        height: 8px;
+        width: 8px;
+        background-color: #ef4444;
+        border-radius: 50%;
+      }
+
+      .user-profile {
+        display: flex;
+        align-items: center;
+        text-decoration: none !important;
+      }
+
+      .user-avatar-placeholder {
+        font-size: 28px;
+        color: var(--text-secondary);
+        margin-right: 10px;
+      }
+
+      .user-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        font-size: 14px;
+      }
+
+      /* Inner view container */
+      .view-container {
+        padding: 40px;
+        flex-grow: 1;
+      }
+
+      /* Global Card design */
+      .card-glass {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 18px;
+        padding: 24px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        margin-bottom: 24px;
+        transition: transform 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
+      }
+
+      .form-control {
+        background-color: var(--bg-main) !important;
+        border: 1px solid var(--border-color) !important;
+        color: var(--text-primary) !important;
+        border-radius: 10px !important;
+      }
+    </style>
+    {% block extra_css %}{% endblock %}
+  </head>
+  <body>
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="logo-container">
+        <i class="fa-brands fa-twitter logo-icon"></i>
+        <span class="logo-text">Tweet Analyzer</span>
+      </div>
+      
+      <ul class="nav-menu">
+        <li>
+          <a href="/" class="nav-item-link {% block active_home %}{% endblock %}">
+            <i class="fa-solid fa-chart-line"></i> Dashboard
+          </a>
+        </li>
+        <li>
+          <a href="/sentiment" class="nav-item-link {% block active_sent %}{% endblock %}">
+            <i class="fa-solid fa-bolt"></i> Real-time Analysis
+          </a>
+        </li>
+        <li>
+          <a href="/sentiment/dataset-analysis/" class="nav-item-link {% block active_dataset %}{% endblock %}">
+            <i class="fa-solid fa-database"></i> Dataset Analysis
+          </a>
+        </li>
+        <li>
+          <a href="/compare" class="nav-item-link {% block active_compare %}{% endblock %}">
+            <i class="fa-solid fa-code-compare"></i> Compare Topics
+          </a>
+        </li>
+        <li>
+          <a href="/emotion" class="nav-item-link {% block active_emotion %}{% endblock %}">
+            <i class="fa-solid fa-face-smile"></i> Emotion Analysis
+          </a>
+        </li>
+        <li>
+          <a href="/sentiment/chatbot/" class="nav-item-link {% block active_bot %}{% endblock %}">
+            <i class="fa-solid fa-robot"></i> AI Assistant
+          </a>
+        </li>
+      </ul>
+
+      <div class="ai-assistant-card">
+        <i class="fa-solid fa-robot" style="font-size: 32px; color: var(--primary-color);"></i>
+        <h6 class="mt-2 mb-1" style="font-weight: 600;">AI Assistant</h6>
+        <p class="text-muted small mb-0">Ask me anything about tweet sentiments!</p>
+        <button class="ai-assistant-btn" onclick="location.href='/sentiment/chatbot/'">Chat Now <i class="fa-solid fa-arrow-right"></i></button>
+      </div>
+    </div>
+
+    <!-- Main Content wrapper -->
+    <div class="main-content">
+      <!-- Top header bar -->
+      <div class="top-header">
+        <div class="search-bar-container">
+          <i class="fa-solid fa-magnifying-glass text-muted"></i>
+          <input type="text" placeholder="Search keywords, hashtags or @username...">
+        </div>
+        
+        <div class="header-right">
+          <!-- Dark Mode Toggle Button -->
+          <button class="header-btn" onclick="toggleDarkMode()">
+            <i id="themeIcon" class="fa-solid fa-moon"></i>
+          </button>
+          
+          <!-- Notifications dropdown -->
+          <div class="dropdown mr-3">
+            <button class="header-btn dropdown-toggle" type="button" id="notifDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="padding: 0; outline: none; box-shadow: none;">
+              <i class="fa-solid fa-bell"></i>
+              <span class="badge-dot" id="notifBadge" style="display: none;"></span>
+            </button>
+            <div class="dropdown-menu dropdown-menu-right p-0" aria-labelledby="notifDropdown" style="width: 320px; border-radius: 12px; background: var(--sidebar-bg); border: 1px solid var(--border-color); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 400px; overflow-y: auto;">
+              <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="mb-0" style="font-weight: 600; color: var(--text-primary);">Notifications</h6>
+                <a href="#" class="small" onclick="markAllRead(event)" style="color: var(--primary-color); font-weight: 500;">Mark all read</a>
+              </div>
+              <div id="notifList" class="p-2">
+                <!-- Notifications list injected via JS -->
+              </div>
+            </div>
+          </div>
+          
+          {% if user.is_authenticated %}
+            <div class="user-profile">
+              <i class="fa-solid fa-circle-user user-avatar-placeholder" style="color: var(--primary-color);"></i>
+              <span class="user-name">{{ user.username }}</span>
+            </div>
+            <a href="/logout" class="btn btn-sm btn-outline-danger ml-3" style="border-radius: 8px;">Logout</a>
+          {% else %}
+            <div class="user-profile">
+              <i class="fa-solid fa-circle-user user-avatar-placeholder"></i>
+              <span class="user-name">Guest User</span>
+            </div>
+            <a href="/login" class="btn btn-sm btn-outline-primary px-3 ml-3" style="border-radius: 8px;">Login</a>
+            <a href="/signup" class="btn btn-sm btn-primary ml-2 px-3" style="border-radius: 8px; color: white !important;">Sign Up</a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Main view placeholder -->
+      <div class="view-container">
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+
+    <!-- JS dependencies -->
+    <script src="{% static 'register/js/jquery.min.js' %}"></script>
+    <script src="{% static 'register/js/bootstrap.min.js' %}"></script>
+
+    <script>
+      // Apply saved dark mode theme state from localStorage
+      if (localStorage.getItem('darkMode') === 'enabled') {
+        document.body.classList.add('dark-mode');
+        document.getElementById('themeIcon').classList.replace('fa-moon', 'fa-sun');
+      }
+
+      function toggleDarkMode() {
+        document.body.classList.toggle('dark-mode');
+        const icon = document.getElementById('themeIcon');
+        if (document.body.classList.contains('dark-mode')) {
+          localStorage.setItem('darkMode', 'enabled');
+          icon.classList.replace('fa-moon', 'fa-sun');
+        } else {
+          localStorage.setItem('darkMode', 'disabled');
+          icon.classList.replace('fa-sun', 'fa-moon');
+        }
+      }
+
+      // Notifications management scripts
+      function fetchNotifications() {
+        $.ajax({
+          url: '/api/notifications/',
+          type: 'GET',
+          success: function(data) {
+            const list = $('#notifList');
+            list.empty();
+            if (!data.notifications || data.notifications.length === 0) {
+              list.append('<div class="p-3 text-center text-muted small">No notifications</div>');
+              $('#notifBadge').hide();
+            } else {
+              if (data.unread_count > 0) {
+                $('#notifBadge').show();
+              } else {
+                $('#notifBadge').hide();
+              }
+              
+              data.notifications.forEach(n => {
+                const readStyle = n.is_read ? 'opacity: 0.7;' : 'background: var(--accent-hover); font-weight: 600;';
+                const item = $(`
+                  <div class="p-2 mb-1 rounded d-flex justify-content-between align-items-center" style="${readStyle} border-bottom: 1px solid var(--border-color); transition: all 0.2s;">
+                    <div style="flex-grow: 1; font-size: 11px; color: var(--text-primary); cursor: pointer;" onclick="markRead(${n.id})">
+                      <div>${n.message}</div>
+                      <div class="text-muted small mt-1" style="font-size: 8px;">${n.timestamp}</div>
+                    </div>
+                    <button class="btn btn-sm text-danger" onclick="deleteNotif(${n.id}, event)" style="background: transparent; border: none; padding: 2px 6px;">
+                      <i class="fa-solid fa-trash" style="font-size: 10px;"></i>
+                    </button>
+                  </div>
+                `);
+                list.append(item);
+              });
+            }
+          }
+        });
+      }
+
+      function markRead(id) {
+        $.ajax({
+          url: `/api/notifications/mark-read/${id}/`,
+          type: 'POST',
+          headers: {'X-CSRFToken': '{{ csrf_token }}'},
+          success: function() {
+            fetchNotifications();
+          }
+        });
+      }
+
+      function markAllRead(e) {
+        e.preventDefault();
+        $.ajax({
+          url: '/api/notifications/mark-all-read/',
+          type: 'POST',
+          headers: {'X-CSRFToken': '{{ csrf_token }}'},
+          success: function() {
+            fetchNotifications();
+          }
+        });
+      }
+
+      function deleteNotif(id, e) {
+        e.stopPropagation();
+        $.ajax({
+          url: `/api/notifications/delete/${id}/`,
+          type: 'POST',
+          headers: {'X-CSRFToken': '{{ csrf_token }}'},
+          success: function() {
+            fetchNotifications();
+          }
+        });
+      }
+
+      setInterval(fetchNotifications, 8000);
+      $(document).ready(function() {
+        fetchNotifications();
+        
+        // Manual toggle to avoid popper.js errors
+        $('#notifDropdown').click(function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          $(this).next('.dropdown-menu').toggle();
+        });
+        
+        $(document).click(function() {
+          $('.dropdown-menu').hide();
+        });
+        
+        $('.dropdown-menu').click(function(e) {
+          e.stopPropagation();
+        });
+      });
+    </script>
+    {% block extra_js %}{% endblock %}
+  </body>
+</html>

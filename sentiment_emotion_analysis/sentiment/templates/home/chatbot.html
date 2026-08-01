@@ -1,0 +1,260 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}AI Assistant - Tweet Analyzer{% endblock %}
+{% block active_bot %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+  .chat-card {
+    max-width: 800px;
+    margin: 20px auto 0 auto;
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 220px);
+    overflow: hidden;
+  }
+  .chat-header {
+    padding: 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--sidebar-bg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .chat-body {
+    flex-grow: 1;
+    padding: 24px;
+    overflow-y: auto;
+    background: var(--bg-main);
+  }
+  .chat-bubble {
+    max-width: 70%;
+    margin-bottom: 20px;
+    padding: 15px 20px;
+    border-radius: 18px;
+    font-size: 14px;
+    line-height: 1.6;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .chat-bubble-bot {
+    background-color: var(--sidebar-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    margin-right: auto;
+    border-top-left-radius: 4px;
+  }
+  .chat-bubble-user {
+    background-color: var(--primary-color);
+    color: white;
+    margin-left: auto;
+    border-top-right-radius: 4px;
+  }
+  .chat-input-container {
+    padding: 20px;
+    border-top: 1px solid var(--border-color);
+    background: var(--sidebar-bg);
+  }
+  .chat-input-container form {
+    display: flex;
+    align-items: center;
+  }
+  .chat-input-container input {
+    height: 50px;
+    border-radius: 12px !important;
+    flex-grow: 1;
+    margin-right: 12px;
+  }
+  .btn-chat-send {
+    height: 50px;
+    width: 50px;
+    border-radius: 12px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .typing-indicator {
+    display: none;
+    margin-right: auto;
+    margin-bottom: 20px;
+    padding: 12px 18px;
+    background-color: var(--sidebar-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    border-top-left-radius: 4px;
+  }
+  .typing-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--text-secondary);
+    animation: wave 1.3s linear infinite;
+    margin: 0 2px;
+  }
+  .typing-dot:nth-child(2) { animation-delay: -1.1s; }
+  .typing-dot:nth-child(3) { animation-delay: -0.9s; }
+  @keyframes wave {
+    0%, 60%, 100% { transform: translateY(0); }
+    30% { transform: translateY(-4px); }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-card">
+  <div class="chat-header">
+    <div class="d-flex align-items-center">
+      <i class="fa-solid fa-robot mr-3" style="font-size: 24px; color: var(--primary-color);"></i>
+      <div>
+        <h5 class="mb-0" style="font-weight: 700; color: var(--text-primary);">AI Assistant Chatbot</h5>
+        <span class="text-muted small">Answering strictly based on analyzed Twitter data context</span>
+      </div>
+    </div>
+    <button class="btn btn-sm btn-outline-danger" onclick="clearChatHistory()" style="border-radius: 8px; font-weight: 600;">
+      <i class="fa-solid fa-trash-can mr-1"></i> Clear Chat
+    </button>
+  </div>
+  
+  <div class="chat-body" id="chatBody">
+    <!-- Initial welcome message -->
+    <div class="chat-bubble chat-bubble-bot">
+      Hello! I am your contextual Twitter sentiment assistant. 
+      Ask me questions about the active search context, such as:
+      <ul class="mt-2 mb-0 pl-3">
+        <li><em>"Summarize today's tweets"</em></li>
+        <li><em>"Why is sentiment negative?"</em></li>
+        <li><em>"What are the trending hashtags?"</em></li>
+        <li><em>"Show positive tweets"</em></li>
+        <li><em>"Which emotion is most common?"</em></li>
+      </ul>
+    </div>
+    
+    {% if request.session.chat_history %}
+      {% for chat in request.session.chat_history %}
+        {% if chat.role == 'user' %}
+          <div class="chat-bubble chat-bubble-user">
+            {{ chat.message }}
+          </div>
+        {% else %}
+          <div class="chat-bubble chat-bubble-bot">
+            {{ chat.message|safe }}
+          </div>
+        {% endif %}
+      {% endfor %}
+    {% endif %}
+  </div>
+
+  <!-- Typing indicator -->
+  <div class="typing-indicator ml-4" id="typingIndicator">
+    <div class="typing-dot"></div>
+    <div class="typing-dot"></div>
+    <div class="typing-dot"></div>
+  </div>
+
+  <div class="chat-input-container">
+    <form id="chatForm" onsubmit="sendChatMessage(event)">
+      <input type="text" id="chatInput" class="form-control" placeholder="Ask a question about the tweets..." required autocomplete="off">
+      <button type="submit" class="btn-chat-send">
+        <i class="fa-solid fa-paper-plane"></i>
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Scroll chat window to bottom
+  function scrollToBottom() {
+    const body = document.getElementById('chatBody');
+    body.scrollTop = body.scrollHeight;
+  }
+  
+  window.onload = scrollToBottom;
+
+  function sendChatMessage(e) {
+    e.preventDefault();
+    const input = document.getElementById('chatInput');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    // Append user message bubble
+    const chatBody = document.getElementById('chatBody');
+    const userBubble = document.createElement('div');
+    userBubble.className = 'chat-bubble chat-bubble-user';
+    userBubble.textContent = msg;
+    chatBody.appendChild(userBubble);
+    
+    input.value = '';
+    scrollToBottom();
+
+    // Show typing animation
+    const indicator = document.getElementById('typingIndicator');
+    indicator.style.display = 'block';
+
+    $.ajax({
+      url: '/sentiment/chatbot/api/',
+      type: 'POST',
+      data: {
+        message: msg,
+        csrfmiddlewaretoken: '{{ csrf_token }}'
+      },
+      success: function(data) {
+        indicator.style.display = 'none';
+        
+        // Append bot response bubble
+        const botBubble = document.createElement('div');
+        botBubble.className = 'chat-bubble chat-bubble-bot';
+        botBubble.innerHTML = data.response;
+        chatBody.appendChild(botBubble);
+        scrollToBottom();
+      },
+      error: function() {
+        indicator.style.display = 'none';
+        const errorBubble = document.createElement('div');
+        errorBubble.className = 'chat-bubble chat-bubble-bot text-danger';
+        errorBubble.textContent = "AI Assistant service is currently unavailable. Please verify connection.";
+        chatBody.appendChild(errorBubble);
+        scrollToBottom();
+      }
+    });
+  }
+
+  function clearChatHistory() {
+    $.ajax({
+      url: '/sentiment/chatbot/clear/',
+      type: 'POST',
+      headers: {'X-CSRFToken': '{{ csrf_token }}'},
+      success: function() {
+        const body = document.getElementById('chatBody');
+        body.innerHTML = `
+          <div class="chat-bubble chat-bubble-bot">
+            Hello! Chat history cleared. 
+            Ask me questions about the active search context, such as:
+            <ul class="mt-2 mb-0 pl-3">
+              <li><em>"Summarize today's tweets"</em></li>
+              <li><em>"Why is sentiment negative?"</em></li>
+              <li><em>"What are the trending hashtags?"</em></li>
+              <li><em>"Show positive tweets"</em></li>
+              <li><em>"Which emotion is most common?"</em></li>
+            </ul>
+          </div>
+        `;
+      }
+    });
+  }
+</script>
+{% endblock %}
