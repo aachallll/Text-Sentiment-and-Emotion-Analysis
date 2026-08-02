@@ -1,0 +1,410 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}Sentiment Quiz - Tweet Analyzer{% endblock %}
+{% block active_quiz %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+  .quiz-container {
+    max-width: 800px;
+    margin: 30px auto;
+  }
+  .progress {
+    height: 12px;
+    border-radius: 6px;
+    background-color: var(--border-color);
+    overflow: hidden;
+  }
+  .progress-bar {
+    background-color: var(--primary-color);
+    transition: width 0.4s ease;
+  }
+  .quiz-option-btn {
+    width: 100%;
+    padding: 16px 20px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background-color: var(--card-bg);
+    color: var(--text-primary);
+    font-weight: 500;
+    text-align: left;
+    transition: all 0.2s ease;
+  }
+  .quiz-option-btn:hover:not([disabled]) {
+    border-color: var(--primary-color);
+    background-color: var(--accent-hover);
+  }
+  .quiz-option-btn:focus {
+    outline: none;
+  }
+  .quiz-option-btn.selected {
+    background-color: var(--accent-hover);
+    border-color: var(--primary-color);
+    font-weight: 600;
+  }
+  .quiz-option-btn.correct {
+    background-color: rgba(16, 185, 129, 0.15) !important;
+    border-color: #10b981 !important;
+    color: #10b981 !important;
+  }
+  .quiz-option-btn.incorrect {
+    background-color: rgba(239, 68, 68, 0.15) !important;
+    border-color: #ef4444 !important;
+    color: #ef4444 !important;
+  }
+  .explanation-box {
+    border-left: 4px solid var(--primary-color);
+    background: var(--bg-main);
+    border-radius: 0 12px 12px 0;
+  }
+  .quiz-slide {
+    display: none;
+    animation: slideIn 0.3s ease;
+  }
+  .quiz-slide.active {
+    display: block;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .review-item {
+    border-bottom: 1px solid var(--border-color);
+    padding: 15px 0;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="quiz-container">
+  <!-- Quiz Start View -->
+  <div id="startView" class="card-glass text-center p-5">
+    <i class="fa-solid fa-gamepad text-primary mb-4" style="font-size: 55px; color: var(--primary-color);"></i>
+    <h2 style="font-weight: 800; color: var(--text-primary);">Interactive Sentiment Quiz</h2>
+    <p class="text-muted mb-5">Test your sentiment classification accuracy against the Kaggle dataset and our trained ML models!</p>
+    
+    <div style="max-width: 400px; margin: 0 auto 30px auto;">
+      <label for="difficultySelect" class="text-muted small" style="font-weight: 600;">CHOOSE DIFFICULTY</label>
+      <select id="difficultySelect" class="form-control text-center" style="height: 48px; border-radius: 12px;">
+        <option value="easy">Easy (Short, strong polarity words)</option>
+        <option value="medium" selected>Medium (Standard length tweets)</option>
+        <option value="hard">Hard (Complex sentences, mixed context)</option>
+      </select>
+    </div>
+    
+    <button class="btn btn-primary px-5 py-3" style="border-radius: 12px; font-weight: 600;" onclick="startQuiz()">
+      Start Quiz <i class="fa-solid fa-play ml-2"></i>
+    </button>
+  </div>
+
+  <!-- Quiz Gameplay View -->
+  <div id="gameplayView" class="card-glass" style="display: none;">
+    <!-- Progress Indicator -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <span class="text-muted small" id="progressText">Question 1 of 10</span>
+      <span class="badge badge-primary px-3 py-2" id="difficultyBadge" style="border-radius: 12px;">Medium</span>
+    </div>
+    
+    <div class="progress mb-4">
+      <div class="progress-bar" id="progressBar" role="progressbar" style="width: 10%;"></div>
+    </div>
+
+    <!-- Question content slides -->
+    <div id="questionContainer">
+      <!-- Injected via JS -->
+    </div>
+
+    <!-- Gameplay Action Buttons -->
+    <div class="d-flex justify-content-between mt-4">
+      <button class="btn btn-outline-secondary px-4" id="prevBtn" onclick="prevQuestion()" style="border-radius: 10px;">
+        <i class="fa-solid fa-arrow-left mr-1"></i> Prev
+      </button>
+      <div>
+        <button class="btn btn-outline-warning px-4 mr-2" id="skipBtn" onclick="skipQuestion()" style="border-radius: 10px;">
+          Skip <i class="fa-solid fa-forward mr-1"></i>
+        </button>
+        <button class="btn btn-primary px-4" id="nextBtn" onclick="nextQuestion()" style="border-radius: 10px;">
+          Next <i class="fa-solid fa-arrow-right ml-1"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Quiz Results Summary View -->
+  <div id="resultsView" class="card-glass p-5 text-center" style="display: none;">
+    <i class="fa-solid fa-trophy text-warning mb-4" style="font-size: 55px;"></i>
+    <h2 style="font-weight: 800; color: var(--text-primary);">Quiz Complete!</h2>
+    <p class="text-muted mb-4" id="performanceMsg">Excellent job!</p>
+
+    <!-- Score Grid -->
+    <div class="row mb-5">
+      <div class="col-4">
+        <h6 class="text-muted small mb-1">TOTAL QUESTIONS</h6>
+        <h3 style="font-weight: 700; color: var(--text-primary);" id="totalQuestions">10</h3>
+      </div>
+      <div class="col-4">
+        <h6 class="text-success small mb-1">CORRECT ANSWERS</h6>
+        <h3 style="font-weight: 700; color: #10b981;" id="correctAnswers">0</h3>
+      </div>
+      <div class="col-4">
+        <h6 class="text-danger small mb-1">ACCURACY</h6>
+        <h3 style="font-weight: 700; color: var(--primary-color);" id="accuracyPercent">0%</h3>
+      </div>
+    </div>
+
+    <!-- Review Answers Panel -->
+    <div class="text-left mb-5">
+      <h4 style="font-weight: 700; color: var(--text-primary);" class="mb-3">Review Answers</h4>
+      <div id="reviewContainer" style="max-height: 400px; overflow-y: auto; padding-right: 10px;">
+        <!-- Injected via JS -->
+      </div>
+    </div>
+
+    <!-- Reset Buttons -->
+    <div class="d-flex justify-content-center">
+      <button class="btn btn-primary px-5 py-3" style="border-radius: 12px; font-weight: 600;" onclick="restartQuiz()">
+        <i class="fa-solid fa-rotate-right mr-2"></i> Restart Quiz
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let quizQuestions = [];
+  let currentIdx = 0;
+  let userAnswers = {}; // id: selectedOption
+  let evaluatedAnswers = {}; // id: evaluation object
+
+  function startQuiz() {
+    const difficulty = document.getElementById('difficultySelect').value;
+    
+    // Show Loading
+    $('#startView').hide();
+    $('#gameplayView').show();
+    $('#questionContainer').html('<div class="text-center p-5"><i class="fa-solid fa-spinner fa-spin fa-2x"></i><p class="text-muted mt-2">Loading random tweets from Kaggle dataset...</p></div>');
+    
+    $.ajax({
+      url: `/sentiment/quiz/api/questions/?difficulty=${difficulty}`,
+      type: 'GET',
+      success: function(data) {
+        if (data.status === 'success' && data.questions.length > 0) {
+          quizQuestions = data.questions;
+          currentIdx = 0;
+          userAnswers = {};
+          evaluatedAnswers = {};
+          
+          $('#difficultyBadge').text(difficulty.charAt(0).toUpperCase() + difficulty.slice(1));
+          renderQuestion();
+        } else {
+          showError("Could not retrieve questions from the dataset. Make sure text_emotion.csv is loaded.");
+        }
+      },
+      error: function() {
+        showError("Failed to communicate with Django quiz service.");
+      }
+    });
+  }
+
+  function showError(msg) {
+    $('#gameplayView').hide();
+    $('#startView').show().prepend(`
+      <div class="alert alert-danger mb-4 text-left" style="border-radius:10px;">
+        <i class="fa-solid fa-triangle-exclamation mr-2"></i> ${msg}
+      </div>
+    `);
+  }
+
+  function renderQuestion() {
+    const container = $('#questionContainer');
+    container.empty();
+    
+    if (quizQuestions.length === 0) return;
+    const q = quizQuestions[currentIdx];
+    
+    // Update progress elements
+    $('#progressText').text(`Question ${currentIdx + 1} of ${quizQuestions.length}`);
+    $('#progressBar').css('width', `${((currentIdx + 1) / quizQuestions.length) * 100}%`);
+    
+    // Toggle actions state
+    $('#prevBtn').prop('disabled', currentIdx === 0);
+    
+    const isAnswered = userAnswers[q.id] !== undefined;
+    const evalData = evaluatedAnswers[q.id];
+    
+    const questionHtml = $(`
+      <div class="quiz-slide active">
+        <h4 class="mb-4" style="color: var(--text-primary); font-weight: 600; line-height: 1.5;">
+          "${q.text}"
+        </h4>
+        
+        <div class="options-container">
+          <button class="quiz-option-btn" data-value="Positive" ${isAnswered ? 'disabled' : ''}>Positive</button>
+          <button class="quiz-option-btn" data-value="Neutral" ${isAnswered ? 'disabled' : ''}>Neutral</button>
+          <button class="quiz-option-btn" data-value="Negative" ${isAnswered ? 'disabled' : ''}>Negative</button>
+        </div>
+        
+        <div class="evaluation-panel mt-4" style="display: ${isAnswered ? 'block' : 'none'};">
+          <div class="p-3 mb-3 rounded ${evalData && evalData.correct ? 'alert-success' : 'alert-danger'}" style="border-radius: 12px; font-weight: 600; display: flex; align-items: center;">
+            <i class="fa-solid ${evalData && evalData.correct ? 'fa-circle-check text-success' : 'fa-circle-xmark text-danger'} mr-2" style="font-size: 20px;"></i>
+            <span>${evalData && evalData.correct ? 'Correct Answer!' : 'Incorrect Answer.'}</span>
+          </div>
+          
+          <div class="row mb-3">
+            <div class="col-6">
+              <span class="text-muted small">Dataset Label:</span>
+              <div style="font-weight: 600; color: var(--text-primary);">${evalData ? evalData.actual : ''}</div>
+            </div>
+            <div class="col-6">
+              <span class="text-muted small">Model Prediction:</span>
+              <div style="font-weight: 600; color: var(--text-primary);">${evalData ? evalData.predicted : ''} (${evalData ? evalData.confidence : ''}%)</div>
+            </div>
+          </div>
+          
+          <div class="explanation-box p-3 mb-3">
+            <h6 style="font-weight: 700; color: var(--primary-color);" class="mb-1"><i class="fa-solid fa-circle-info"></i> Explanation</h6>
+            <p class="text-muted mb-0 small" style="line-height: 1.5;">${evalData ? evalData.explanation : ''}</p>
+          </div>
+        </div>
+      </div>
+    `);
+    
+    container.append(questionHtml);
+
+    // If already answered, color options accordingly
+    if (isAnswered) {
+      const selected = userAnswers[q.id];
+      const correct = q.sentiment;
+      
+      container.find(`.quiz-option-btn`).each(function() {
+        const val = $(this).data('value');
+        if (val === correct) {
+          $(this).addClass('correct');
+        } else if (val === selected) {
+          $(this).addClass('incorrect');
+        }
+      });
+    }
+
+    // Bind click events to options
+    container.find('.quiz-option-btn').click(function() {
+      if (isAnswered) return;
+      const selectedVal = $(this).data('value');
+      submitAnswer(q.id, q.text, selectedVal, q.sentiment);
+    });
+  }
+
+  function submitAnswer(qId, text, userAnswer, correctAnswer) {
+    userAnswers[qId] = userAnswer;
+    
+    // Show spinner in option btn
+    renderQuestion();
+    
+    $.ajax({
+      url: '/sentiment/quiz/api/submit/',
+      type: 'POST',
+      data: {
+        text: text,
+        user_answer: userAnswer,
+        correct_answer: correctAnswer,
+        csrfmiddlewaretoken: '{{ csrf_token }}'
+      },
+      success: function(data) {
+        evaluatedAnswers[qId] = data;
+        renderQuestion();
+      }
+    });
+  }
+
+  function nextQuestion() {
+    if (currentIdx < quizQuestions.length - 1) {
+      currentIdx++;
+      renderQuestion();
+    } else {
+      showResults();
+    }
+  }
+
+  function prevQuestion() {
+    if (currentIdx > 0) {
+      currentIdx--;
+      renderQuestion();
+    }
+  }
+
+  function skipQuestion() {
+    userAnswers[quizQuestions[currentIdx].id] = 'Skipped';
+    evaluatedAnswers[quizQuestions[currentIdx].id] = {
+      correct: false,
+      actual: quizQuestions[currentIdx].sentiment,
+      predicted: 'Neutral',
+      confidence: 50,
+      explanation: 'Question was skipped by the user.'
+    };
+    nextQuestion();
+  }
+
+  function showResults() {
+    $('#gameplayView').hide();
+    $('#resultsView').show();
+    
+    let correctCount = 0;
+    let incorrectCount = 0;
+    
+    const review = $('#reviewContainer');
+    review.empty();
+    
+    quizQuestions.forEach((q, index) => {
+      const evalData = evaluatedAnswers[q.id];
+      const userAns = userAnswers[q.id];
+      const isCorrect = evalData && evalData.correct;
+      
+      if (isCorrect) correctCount++;
+      else incorrectCount++;
+      
+      const item = $(`
+        <div class="review-item">
+          <div style="font-weight: 600; color: var(--text-primary); font-size: 13px;" class="mb-2">Q${index+1}: "${q.text}"</div>
+          <div class="row">
+            <div class="col-4">
+              <span class="text-muted small">Your Answer:</span>
+              <div style="font-weight:600; color: ${isCorrect ? '#10b981' : '#ef4444'};">${userAns}</div>
+            </div>
+            <div class="col-4">
+              <span class="text-muted small">Correct Answer:</span>
+              <div style="font-weight:600; color: #10b981;">${q.sentiment}</div>
+            </div>
+            <div class="col-4">
+              <span class="text-muted small">Model Prediction:</span>
+              <div style="font-weight:600; color: var(--text-primary);">${evalData ? evalData.predicted : ''} (${evalData ? evalData.confidence : ''}%)</div>
+            </div>
+          </div>
+        </div>
+      `);
+      review.append(item);
+    });
+    
+    const total = quizQuestions.length;
+    const accuracy = total > 0 ? Math.round((correctCount / total) * 100) : 0;
+    
+    $('#totalQuestions').text(total);
+    $('#correctAnswers').text(correctCount);
+    $('#accuracyPercent').text(`${accuracy}%`);
+    
+    let perf = "Needs Improvement";
+    if (accuracy >= 80) perf = "Excellent Performance! 🏆";
+    else if (accuracy >= 60) perf = "Good Performance! 👍";
+    else if (accuracy >= 40) perf = "Average Performance. Keep learning!";
+    
+    $('#performanceMsg').text(perf);
+  }
+
+  function restartQuiz() {
+    $('#resultsView').hide();
+    $('#startView').show();
+  }
+</script>
+{% endblock %}

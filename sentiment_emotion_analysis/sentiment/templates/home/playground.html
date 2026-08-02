@@ -1,0 +1,415 @@
+{% extends 'home/base.html' %}
+{% load static %}
+
+{% block title %}NLP Playground - Tweet Analyzer{% endblock %}
+{% block active_playground %}active{% endblock %}
+
+{% block extra_css %}
+<style>
+  .step-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 18px;
+    margin-bottom: 15px;
+    border-left: 3px solid var(--primary-color);
+  }
+  .step-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary-color);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .step-value {
+    font-size: 14px;
+    color: var(--text-primary);
+    word-break: break-all;
+  }
+  .kpi-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row align-items-center mb-5">
+  <div class="col-md-7">
+    <h1 style="font-weight: 800; color: var(--text-primary);">NLP Preprocessing Playground</h1>
+    <p class="text-muted">Explore step-by-step natural language pipelines and text statistics.</p>
+  </div>
+  <div class="col-md-5 text-md-right">
+    <button class="btn btn-outline-primary mr-2" style="border-radius: 10px; font-weight: 600;" onclick="loadSampleTweet()">
+      <i class="fa-solid fa-shuffle mr-1"></i> Get Sample Tweet
+    </button>
+    <button class="btn btn-outline-secondary" style="border-radius: 10px; font-weight: 600;" onclick="resetPlayground()">
+      <i class="fa-solid fa-rotate-left mr-1"></i> Reset
+    </button>
+  </div>
+</div>
+
+<!-- Input Box -->
+<div class="card-glass mb-4">
+  <h5 style="font-weight: 700; color: var(--text-primary);" class="mb-3">Enter text to analyze</h5>
+  <textarea id="playgroundInput" class="form-control mb-3" rows="4" placeholder="Type text or paste a tweet here..." style="border-radius: 12px; font-size: 15px; padding: 15px; resize: none;"></textarea>
+  <button class="btn btn-primary px-5 py-2" style="border-radius: 10px; font-weight: 600; height: 48px;" onclick="analyzePlaygroundText()" id="btnAnalyze">
+    Analyze Preprocessing Pipeline <i class="fa-solid fa-gears ml-1"></i>
+  </button>
+</div>
+
+<!-- Loader -->
+<div class="text-center p-5" id="playgroundLoader" style="display: none;">
+  <i class="fa-solid fa-gear fa-spin fa-3x text-primary mb-3"></i>
+  <h6 style="font-weight: 600; color: var(--text-primary);">Running Preprocessing Pipeline...</h6>
+</div>
+
+<!-- Results Area -->
+<div id="playgroundResults" style="display: none;">
+  
+  <!-- Stats Row -->
+  <div class="row mb-4">
+    <div class="col-md-2 col-6 mb-2">
+      <div class="card-glass text-center p-3">
+        <span class="text-muted small">Word Count</span>
+        <div class="kpi-value" id="statWords">0</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6 mb-2">
+      <div class="card-glass text-center p-3">
+        <span class="text-muted small">Char Count</span>
+        <div class="kpi-value" id="statChars">0</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6 mb-2">
+      <div class="card-glass text-center p-3">
+        <span class="text-muted small">Tokens</span>
+        <div class="kpi-value" id="statTokens">0</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6 mb-2">
+      <div class="card-glass text-center p-3">
+        <span class="text-muted small">Stopwords</span>
+        <div class="kpi-value" id="statStopwords">0</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6 mb-2">
+      <div class="card-glass text-center p-3">
+        <span class="text-muted small">Readability</span>
+        <div class="kpi-value" id="statReadability">0</div>
+      </div>
+    </div>
+    <div class="col-md-2 col-6 mb-2">
+      <div class="card-glass text-center p-3">
+        <span class="text-muted small">Reading Time</span>
+        <div class="kpi-value" id="statTime">0s</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Predictions & Visualizations Grid -->
+  <div class="row">
+    <!-- Model outputs -->
+    <div class="col-md-6 mb-4">
+      <div class="card-glass" style="height: 100%;">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 0;">Sentiment Predictions</h4>
+          
+          <div class="dropdown">
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" style="border-radius: 8px;" type="button" id="dlMenu" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+              <i class="fa-solid fa-download"></i> Export
+            </button>
+            <div class="dropdown-menu dropdown-menu-right bg-dark border border-secondary" aria-labelledby="dlMenu">
+              <a class="dropdown-item text-white" href="/sentiment/playground/export-pdf/" target="_blank">Export PDF</a>
+              <a class="dropdown-item text-white" href="/sentiment/playground/export-docx/">Export Word Document</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mb-3">
+          <div class="col-6">
+            <span class="text-muted small">Predicted Sentiment</span>
+            <div class="kpi-value text-success" id="predSentiment" style="font-size: 28px;">Positive</div>
+          </div>
+          <div class="col-6">
+            <span class="text-muted small">Confidence Score</span>
+            <div class="kpi-value" id="predConfidence" style="font-size: 28px;">85%</div>
+          </div>
+        </div>
+
+        <div class="mb-3">
+          <span class="text-muted small">Emotion Detected</span>
+          <div style="font-weight: 600; color: #ec4899;" id="predEmotion">Happiness</div>
+        </div>
+
+        <div class="mb-4">
+          <span class="text-muted small">Highlighted Sentiment (Green: Pos, Red: Neg)</span>
+          <div class="p-3 mt-1 border rounded" style="background: var(--bg-main); border-color: var(--border-color); font-size: 15px; color: var(--text-primary);" id="highlightedWords">
+            <!-- Highlighted text -->
+          </div>
+        </div>
+
+        <div class="p-3 mb-3 border-left border-primary" style="background: var(--bg-main); border-radius: 0 10px 10px 0;">
+          <h6 style="font-weight: 700; color: var(--primary-color);" class="mb-1"><i class="fa-solid fa-circle-info"></i> Model Explanation</h6>
+          <p class="text-muted mb-0 small" id="explanationText">Explain why the model predicted this.</p>
+        </div>
+
+        <button class="btn btn-outline-primary w-100" style="border-radius: 10px; font-weight: 600;" onclick="copyProcessedText()">
+          <i class="fa-solid fa-copy mr-1"></i> Copy Processed Text
+        </button>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="col-md-6 mb-4">
+      <div class="card-glass" style="height: 100%;">
+        <h5 style="font-weight: 700; color: var(--text-primary);" class="mb-4">Token Frequencies</h5>
+        <div style="height: 250px; position: relative;">
+          <canvas id="tokenFrequencyChart"></canvas>
+        </div>
+        
+        <h6 class="text-muted small mt-4 mb-2">Word Cloud Keywords</h6>
+        <div id="wordcloudKeywords" class="d-flex flex-wrap">
+          <!-- Badges -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Preprocessing Pipeline Cards -->
+  <h4 style="font-weight: 800; color: var(--text-primary);" class="mt-4 mb-3">Preprocessing Pipeline Pipeline Steps</h4>
+  <div class="row">
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card">
+        <div class="step-title">Original Text</div>
+        <div class="step-value" id="valOriginal">-</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card">
+        <div class="step-title">Lowercase Conversion</div>
+        <div class="step-value" id="valLowercase">-</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card">
+        <div class="step-title">URL Removal</div>
+        <div class="step-value" id="valUrls">-</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card">
+        <div class="step-title">Mention Removal</div>
+        <div class="step-value" id="valMentions">-</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card">
+        <div class="step-title">Hashtag Processing</div>
+        <div class="step-value" id="valHashtags">-</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card">
+        <div class="step-title">Emoji Processing</div>
+        <div class="step-value" id="valEmojis">-</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card">
+        <div class="step-title">Punctuation Removal</div>
+        <div class="step-value" id="valPunctuation">-</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card">
+        <div class="step-title">Stopword Removal</div>
+        <div class="step-value" id="valStopwords">-</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card">
+        <div class="step-title">Tokenization</div>
+        <div class="step-value" id="valTokens">-</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card">
+        <div class="step-title">Lemmatization</div>
+        <div class="step-value" id="valLemmatization">-</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card">
+        <div class="step-title">Stemming</div>
+        <div class="step-value" id="valStemming">-</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card">
+        <div class="step-title">POS Tagging</div>
+        <div class="step-value" id="valPOS">-</div>
+      </div>
+    </div>
+    <div class="col-md-4 col-sm-6">
+      <div class="step-card text-truncate">
+        <div class="step-title">Named Entity Recognition</div>
+        <div class="step-value" id="valNER">-</div>
+      </div>
+    </div>
+    <div class="col-md-8 col-sm-12">
+      <div class="step-card" style="border-left-color: #10b981;">
+        <div class="step-title" style="color: #10b981;">Final Cleaned Text</div>
+        <div class="step-value font-weight-bold" id="valFinalClean">-</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let freqChart = null;
+
+  function loadSampleTweet() {
+    $.ajax({
+      url: '/sentiment/playground/api/sample/',
+      type: 'GET',
+      success: function(data) {
+        if (data.status === 'success') {
+          $('#playgroundInput').val(data.text);
+        }
+      }
+    });
+  }
+
+  function analyzePlaygroundText() {
+    const text = $('#playgroundInput').val().trim();
+    if (!text) {
+      alert("Please enter some text or click 'Get Sample Tweet' first.");
+      return;
+    }
+
+    // Toggle loader
+    $('#btnAnalyze').prop('disabled', true);
+    $('#playgroundLoader').show();
+    $('#playgroundResults').hide();
+
+    $.ajax({
+      url: '/sentiment/playground/api/analyze/',
+      type: 'POST',
+      data: {
+        text: text,
+        csrfmiddlewaretoken: '{{ csrf_token }}'
+      },
+      success: function(data) {
+        $('#btnAnalyze').prop('disabled', false);
+        $('#playgroundLoader').hide();
+        $('#playgroundResults').show();
+
+        // Populate Preprocessing steps
+        $('#valOriginal').text(data.steps.original);
+        $('#valLowercase').text(data.steps.lowercase);
+        $('#valUrls').text(data.steps.no_urls);
+        $('#valMentions').text(data.steps.no_mentions);
+        $('#valHashtags').text(data.steps.hashtag_processed);
+        $('#valEmojis').text(data.steps.emoji_processed);
+        $('#valPunctuation').text(data.steps.no_punctuation);
+        $('#valStopwords').text(data.steps.stopword_removed);
+        $('#valTokens').text(data.steps.tokenization);
+        $('#valLemmatization').text(data.steps.lemmatization);
+        $('#valStemming').text(data.steps.stemming);
+        $('#valPOS').text(data.steps.pos_tagging);
+        $('#valNER').text(data.steps.ner);
+        $('#valFinalClean').text(data.steps.final_clean);
+
+        // Populate Sentiment
+        $('#predSentiment').text(data.sentiment);
+        $('#predConfidence').text(`${data.confidence}%`);
+        $('#predEmotion').text(data.emotion);
+        $('#highlightedWords').html(data.highlighted);
+        $('#explanationText').text(data.explanation);
+
+        // Color Sentiment appropriately
+        if (data.sentiment === 'Positive') {
+          $('#predSentiment').css('color', '#10b981');
+        } else if (data.sentiment === 'Negative') {
+          $('#predSentiment').css('color', '#ef4444');
+        } else {
+          $('#predSentiment').css('color', '#9ca3af');
+        }
+
+        // Populate KPI stats
+        $('#statWords').text(data.word_count);
+        $('#statChars').text(data.char_count);
+        $('#statTokens').text(data.token_count);
+        $('#statStopwords').text(data.stopwords_removed);
+        $('#statReadability').text(data.readability);
+        $('#statTime').text(`${data.reading_time}s`);
+
+        // Render token frequency chart
+        const words = data.frequencies.map(f => f.word);
+        const counts = data.frequencies.map(f => f.count);
+
+        if (freqChart) freqChart.destroy();
+        const ctx = document.getElementById('tokenFrequencyChart').getContext('2d');
+        freqChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: words,
+            datasets: [{
+              label: 'Frequency',
+              data: counts,
+              backgroundColor: 'rgba(59, 130, 246, 0.6)',
+              borderColor: 'rgba(59, 130, 246, 1)',
+              borderWidth: 2,
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: { ticks: { color: '#9ca3af' } },
+              y: { ticks: { color: '#9ca3af' }, beginAtZero: true }
+            }
+          }
+        });
+
+        // Word Cloud simulation badges
+        const cloud = $('#wordcloudKeywords');
+        cloud.empty();
+        data.frequencies.forEach(f => {
+          cloud.append(`<span class="badge p-2 m-1" style="font-size: ${12 + (f.count*2)}px; background: var(--accent-hover); color: var(--primary-color); border: 1px solid var(--border-color); border-radius: 12px;">${f.word}</span>`);
+        });
+      },
+      error: function() {
+        $('#btnAnalyze').prop('disabled', false);
+        $('#playgroundLoader').hide();
+        alert("Failed to analyze text. Please check connection.");
+      }
+    });
+  }
+
+  function copyProcessedText() {
+    const text = $('#valFinalClean').text();
+    navigator.clipboard.writeText(text);
+    alert("Final cleaned text copied to clipboard!");
+  }
+
+  function resetPlayground() {
+    $('#playgroundInput').val('');
+    $('#playgroundResults').hide();
+  }
+
+  $(document).ready(function() {
+    $('#dlMenu').click(function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      $(this).next('.dropdown-menu').toggle();
+    });
+  });
+</script>
+{% endblock %}

@@ -164,3 +164,44 @@ class DatasetService:
         except Exception as e:
             print(f"Failed to query dataset: {e}")
             return []
+
+    def get_quiz_questions(self, difficulty='medium', limit=10):
+        """Randomly select tweets from the Kaggle dataset matching a difficulty score."""
+        try:
+            df = pd.read_csv(self.filepath)
+            df = df.dropna(subset=['content', 'sentiment'])
+            df['sentiment_mapped'] = df['sentiment'].map(self.label_map)
+            df = df.dropna(subset=['sentiment_mapped'])
+            
+            def estimate_difficulty(text):
+                words = text.split()
+                text_len = len(words)
+                tb_pol = abs(TextBlob(text).sentiment.polarity)
+                if text_len < 10 and tb_pol > 0.5:
+                    return 'easy'
+                elif text_len > 18 or tb_pol < 0.2:
+                    return 'hard'
+                return 'medium'
+            
+            # Sample subset for speed
+            df_sample = df.sample(min(len(df), 1500))
+            df_sample['difficulty'] = df_sample['content'].apply(estimate_difficulty)
+            
+            matched = df_sample[df_sample['difficulty'] == difficulty]
+            if len(matched) < limit:
+                matched = df_sample
+                
+            sampled = matched.sample(min(len(matched), limit))
+            
+            results = []
+            for idx, row in sampled.iterrows():
+                results.append({
+                    'id': int(idx),
+                    'text': row['content'],
+                    'sentiment': row['sentiment_mapped']
+                })
+            return results
+        except Exception as e:
+            print(f"Error getting quiz questions: {e}")
+            return []
+
