@@ -563,5 +563,13 @@
   document.getElementById('filterRetweets').addEventListener('input', applyGlobalFilters);
   document.getElementById('filterKeyword').addEventListener('input', applyGlobalFilters);
   document.getElementById('filterVerified').addEventListener('change', applyGlobalFilters);
+
+  $(document).ready(function() {
+    $('#exportMenu').click(function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      $(this).next('.dropdown-menu').toggle();
+    });
+  });
 </script>
 {% endblock %}

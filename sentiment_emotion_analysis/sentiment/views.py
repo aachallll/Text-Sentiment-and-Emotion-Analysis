@@ -49,111 +49,129 @@ def sentiment_analysis_type(request):
         return render(request, 'home/sentiment_type.html')
 
 def sentiment_analysis_import(request):
+    error_message = None
     if request.method == 'POST':
-        form = Sentiment_Imported_Tweet_analyse_form(request.POST)
-        mode = request.POST.get('mode', 'live') # 'live' or 'dataset'
+        csv_file = request.FILES.get('csv_file')
+        handle = request.POST.get('sentiment_imported_tweet', '').strip()
+        
+        list_of_tweets_and_sentiments = []
+        tweet_texts = []
+        source_indicator = ""
+        mode = "dataset"
 
-        if form.is_valid():
-            handle = form.cleaned_data['sentiment_imported_tweet'].strip()
-            source_indicator = "Live Twitter API (X)"
-            list_of_tweets_and_sentiments = []
-            tweet_texts = []
-
-            # Save search to database if user is logged in
-            if request.user.is_authenticated:
-                SearchHistory.objects.create(user=request.user, query=handle, analysis_type=f'sentiment ({mode})')
-
-            if mode == 'dataset':
-                # Query local Kaggle dataset instead of fetching from Twitter
-                source_indicator = "Kaggle Dataset (text_emotion.csv)"
-                live_tweets = dataset_service.query_dataset(handle)
+        if csv_file:
+            if not csv_file.name.endswith('.csv'):
+                error_message = "Invalid file format. Please upload a valid CSV file (.csv)."
+                return render(request, 'home/sentiment_import.html', {'error_message': error_message})
                 
-                # Format into matching dictionary array
-                tweet_texts = [t['text'] for t in live_tweets]
-                list_of_tweets_and_sentiments = live_tweets
-            else:
-                # Live API mode
-                try:
-                    if handle.startswith('#'):
-                        live_tweets = twitter_service.fetch_tweets_by_query(handle)
-                    else:
-                        search_handle = handle[1:] if handle.startswith('@') else handle
-                        live_tweets = twitter_service.fetch_tweets_by_user(search_handle)
-                except TwitterServiceException as e:
-                    from sentiment_or_emotion.views import add_notification
-                    add_notification(request, f"Live fetch failed: {e}. Switched automatically to Kaggle Dataset Mode.")
-                    mode = 'dataset'
-                    source_indicator = "Kaggle Dataset (text_emotion.csv)"
-                    live_tweets = dataset_service.query_dataset(handle)
-                    tweet_texts = [t['text'] for t in live_tweets]
-                    list_of_tweets_and_sentiments = live_tweets
+            try:
+                import pandas as pd
+                df = pd.read_csv(csv_file)
+                if df.empty:
+                    error_message = "The uploaded CSV file is empty."
+                    return render(request, 'home/sentiment_import.html', {'error_message': error_message})
+                
+                # Detect text column
+                text_col = None
+                for col in ['text', 'content', 'tweet', 'comment', 'message', 'text_emotion', 'tweet_text']:
+                    if col in df.columns:
+                        text_col = col
+                        break
+                if not text_col:
+                    text_col = df.columns[0]
                     
-                if mode == 'live':
-                    tweet_texts = [t.text for t in live_tweets]
-                    for tweet in live_tweets:
-                        sentiment, confidence = model_service.analyze_sentiment(tweet.text)
-                        if sentiment == 'Positive':
-                            detailed = 'Very Positive' if confidence > 80 else 'Positive'
-                        elif sentiment == 'Negative':
-                            detailed = 'Very Negative' if confidence > 80 else 'Negative'
-                        else:
-                            detailed = 'Neutral'
-                            
-                        list_of_tweets_and_sentiments.append({
-                            'username': tweet.username,
-                            'text': tweet.text,
-                            'created_at': tweet.created_at,
-                            'likes': tweet.likes,
-                            'retweets': tweet.retweets,
-                            'replies': tweet.replies,
-                            'lang': tweet.lang,
-                            'verified': tweet.verified,
-                            'sentiment': sentiment,
-                            'detailed': detailed,
-                            'confidence': confidence
-                        })
-
-            # Calculate detailed distribution percentages
-            detailed_counts = {'Very Positive': 0, 'Positive': 0, 'Neutral': 0, 'Negative': 0, 'Very Negative': 0}
-            for item in list_of_tweets_and_sentiments:
-                detailed_counts[item['detailed']] += 1
-
-            # Advanced metrics from helper module
-            aspects = analyze_aspects(tweet_texts)
-            toxicity = detect_toxicity(tweet_texts)
-            bot_score = detect_bots(tweet_texts)
-            summary = generate_summary(tweet_texts)
-            top_hashtags, top_keywords = extract_keywords_and_hashtags(tweet_texts)
-            trends = generate_historical_trends(tweet_texts)
+                df = df.dropna(subset=[text_col])
+                sample_rows = df.head(50)
+                handle = csv_file.name
+                source_indicator = f"Uploaded CSV ({csv_file.name})"
+                
+                for idx, row in sample_rows.iterrows():
+                    raw_text = str(row[text_col])
+                    sentiment, confidence = model_service.analyze_sentiment(raw_text)
+                    if sentiment == 'Positive':
+                        detailed = 'Very Positive' if confidence > 80 else 'Positive'
+                    elif sentiment == 'Negative':
+                        detailed = 'Very Negative' if confidence > 80 else 'Negative'
+                    else:
+                        detailed = 'Neutral'
+                        
+                    tweet_texts.append(raw_text)
+                    list_of_tweets_and_sentiments.append({
+                        'username': row.get('username', row.get('author', f'User_{idx}')),
+                        'text': raw_text,
+                        'created_at': row.get('created_at', 'N/A'),
+                        'likes': int(row.get('likes', 0)),
+                        'retweets': int(row.get('retweets', 0)),
+                        'replies': int(row.get('replies', 0)),
+                        'lang': 'en',
+                        'verified': False,
+                        'sentiment': sentiment,
+                        'detailed': detailed,
+                        'confidence': confidence
+                    })
+                
+                from sentiment_or_emotion.views import add_notification
+                add_notification(request, f"Successfully uploaded and analyzed dataset: {csv_file.name}")
+                
+            except Exception as e:
+                error_message = f"Error reading CSV: {e}"
+                return render(request, 'home/sentiment_import.html', {'error_message': error_message})
+                
+        elif handle:
+            source_indicator = "Kaggle Dataset (text_emotion.csv)"
+            live_tweets = dataset_service.query_dataset(handle)
+            if not live_tweets:
+                error_message = f"No records matching '{handle}' were found in the dataset."
+                return render(request, 'home/sentiment_import.html', {'error_message': error_message})
+                
+            tweet_texts = [t['text'] for t in live_tweets]
+            list_of_tweets_and_sentiments = live_tweets
             
-            # Cache results in session to support export downloads
-            request.session['last_analysis_tweets'] = tweet_texts
-            request.session['last_analysis_handle'] = handle
-
+            if request.user.is_authenticated:
+                SearchHistory.objects.create(user=request.user, query=handle, analysis_type='sentiment_dataset')
+                
             from sentiment_or_emotion.views import add_notification
-            if mode == 'dataset':
-                add_notification(request, f"Kaggle Dataset analysis query successfully completed for: {handle}")
-            else:
-                add_notification(request, f"New live tweets successfully fetched and analyzed for: {handle}")
-
-            args = {
-                'list_of_tweets_and_sentiments': list_of_tweets_and_sentiments, 
-                'handle': handle,
-                'mode': mode,
-                'source_indicator': source_indicator,
-                'detailed_counts': detailed_counts,
-                'aspects': aspects,
-                'toxicity': toxicity,
-                'bot_score': bot_score,
-                'summary': summary,
-                'top_hashtags': top_hashtags,
-                'top_keywords': top_keywords,
-                'trends': trends
-            }
+            add_notification(request, f"Dataset sentiment analysis query completed for: {handle}")
             
-            if handle.startswith('#'):
-                return render(request, 'home/sentiment_import_result_hashtag.html', args)
-            return render(request, 'home/sentiment_import_result.html', args)
+        else:
+            error_message = "Please input a search keyword or upload a CSV file."
+            return render(request, 'home/sentiment_import.html', {'error_message': error_message})
+
+        # Calculate detailed distribution percentages
+        detailed_counts = {'Very Positive': 0, 'Positive': 0, 'Neutral': 0, 'Negative': 0, 'Very Negative': 0}
+        for item in list_of_tweets_and_sentiments:
+            detailed_counts[item['detailed']] += 1
+
+        # Advanced metrics from helper module
+        aspects = analyze_aspects(tweet_texts)
+        toxicity = detect_toxicity(tweet_texts)
+        bot_score = detect_bots(tweet_texts)
+        summary = generate_summary(tweet_texts)
+        top_hashtags, top_keywords = extract_keywords_and_hashtags(tweet_texts)
+        trends = generate_historical_trends(tweet_texts)
+        
+        # Cache results in session to support export downloads
+        request.session['last_analysis_tweets'] = tweet_texts
+        request.session['last_analysis_handle'] = handle
+
+        args = {
+            'list_of_tweets_and_sentiments': list_of_tweets_and_sentiments, 
+            'handle': handle,
+            'mode': mode,
+            'source_indicator': source_indicator,
+            'detailed_counts': detailed_counts,
+            'aspects': aspects,
+            'toxicity': toxicity,
+            'bot_score': bot_score,
+            'summary': summary,
+            'top_hashtags': top_hashtags,
+            'top_keywords': top_keywords,
+            'trends': trends
+        }
+        
+        if handle.startswith('#'):
+            return render(request, 'home/sentiment_import_result_hashtag.html', args)
+        return render(request, 'home/sentiment_import_result.html', args)
 
     else:
         form = Sentiment_Imported_Tweet_analyse_form()

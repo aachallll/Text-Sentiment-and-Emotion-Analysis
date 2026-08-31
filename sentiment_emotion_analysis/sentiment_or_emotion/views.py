@@ -219,62 +219,25 @@ def compare_view(request):
     if request.method == 'POST':
         topic_a = request.POST.get('topic_a', '').strip()
         topic_b = request.POST.get('topic_b', '').strip()
-        mode = request.POST.get('mode', 'live')
         
         if not topic_a or not topic_b:
             add_notification(request, "Comparison failed: Topic fields were empty.")
             return render(request, 'home/compare.html', {'error_message': 'Both topic fields are required.'})
             
         if request.user.is_authenticated:
-            SearchHistory.objects.create(user=request.user, query=f"{topic_a} vs {topic_b}", analysis_type=f'compare ({mode})')
+            SearchHistory.objects.create(user=request.user, query=f"{topic_a} vs {topic_b}", analysis_type='compare_dataset')
 
-        tweets_a, tweets_b = [], []
-        source_indicator = "Live Twitter API (X)"
+        source_indicator = "Kaggle Dataset (text_emotion.csv)"
+        tweets_a = dataset_service.query_dataset(topic_a, limit=30)
+        tweets_b = dataset_service.query_dataset(topic_b, limit=30)
         
-        if mode == 'dataset':
-            source_indicator = "Kaggle Dataset (text_emotion.csv)"
-            tweets_a = dataset_service.query_dataset(topic_a, limit=30)
-            tweets_b = dataset_service.query_dataset(topic_b, limit=30)
-            add_notification(request, f"New comparison dataset query completed for {topic_a} vs {topic_b}.")
-        else:
-            try:
-                if topic_a.startswith('#'):
-                    tweets_a_raw = twitter_service.fetch_tweets_by_query(topic_a)
-                else:
-                    search_handle = topic_a[1:] if topic_a.startswith('@') else topic_a
-                    tweets_a_raw = twitter_service.fetch_tweets_by_user(search_handle)
-                    
-                tweets_a = [{
-                    'username': t.username, 'text': t.text, 'created_at': t.created_at,
-                    'likes': t.likes, 'retweets': t.retweets, 'replies': t.replies,
-                    'lang': t.lang, 'verified': t.verified
-                } for t in tweets_a_raw]
-                
-                if topic_b.startswith('#'):
-                    tweets_b_raw = twitter_service.fetch_tweets_by_query(topic_b)
-                else:
-                    search_handle = topic_b[1:] if topic_b.startswith('@') else topic_b
-                    tweets_b_raw = twitter_service.fetch_tweets_by_user(search_handle)
-                    
-                tweets_b = [{
-                    'username': t.username, 'text': t.text, 'created_at': t.created_at,
-                    'likes': t.likes, 'retweets': t.retweets, 'replies': t.replies,
-                    'lang': t.lang, 'verified': t.verified
-                } for t in tweets_b_raw]
-                
-                add_notification(request, f"New live tweets fetched successfully for comparison.")
-                
-            except Exception as e:
-                add_notification(request, f"Comparison failed: API rate limit or credential warning.")
-                return render(request, 'home/compare.html', {
-                    'error_message': f"Twitter API failed: {e}. Please use Kaggle Dataset Mode for offline comparison."
-                })
-                
         if not tweets_a or not tweets_b:
-            add_notification(request, "Comparison failed: one or both topics yielded 0 tweets.")
+            add_notification(request, "Comparison failed: one or both topics yielded 0 records.")
             return render(request, 'home/compare.html', {
-                'error_message': 'No tweets found for one or both queries. Please try other keywords or check search parameters.'
+                'error_message': 'No matches found in the local database for one or both queries. Try using words like: happy, love, worry, sadness, hate.'
             })
+            
+        add_notification(request, f"Comparison dataset query completed for {topic_a} vs {topic_b}.")
             
         metrics_a = analyze_topic_details(tweets_a)
         metrics_b = analyze_topic_details(tweets_b)

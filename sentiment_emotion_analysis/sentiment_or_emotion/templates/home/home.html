@@ -1,7 +1,7 @@
 {% extends 'home/base.html' %}
 {% load static %}
 
-{% block title %}Dashboard - Tweet Analyzer{% endblock %}
+{% block title %}Dashboard - Social NLP Analyzer{% endblock %}
 {% block active_home %}active{% endblock %}
 
 {% block extra_css %}
@@ -42,7 +42,7 @@
 <div class="row align-items-center mb-5">
   <div class="col-md-8">
     <h1 style="font-weight: 800; color: var(--text-primary);">Dashboard</h1>
-    <p class="text-muted">Real-time overview of tweet sentiment and emotions.</p>
+    <p class="text-muted">Overview of social media sentiment and emotions using Natural Language Processing.</p>
   </div>
 </div>
 
@@ -50,26 +50,26 @@
 <div class="row kpi-row">
   <div class="col-md-4">
     <div class="card-glass text-center">
-      <i class="fa-solid fa-paper-plane" style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;"></i>
-      <h6 class="text-muted">Tweets Per Minute</h6>
-      <h2 style="font-weight: 700; color: var(--text-primary);">350,632</h2>
-      <p class="text-success small mb-0"><i class="fa-solid fa-arrow-up"></i> +12% from yesterday</p>
+      <i class="fa-solid fa-comments" style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;"></i>
+      <h6 class="text-muted">Comments Analyzed</h6>
+      <h2 style="font-weight: 700; color: var(--text-primary);">40,000+</h2>
+      <p class="text-success small mb-0"><i class="fa-solid fa-circle-check"></i> Dataset parsed successfully</p>
     </div>
   </div>
   <div class="col-md-4">
     <div class="card-glass text-center">
-      <i class="fa-solid fa-users" style="font-size: 24px; color: #10b981; margin-bottom: 10px;"></i>
-      <h6 class="text-muted">Active Users</h6>
-      <h2 style="font-weight: 700; color: var(--text-primary);">321.05 M</h2>
-      <p class="text-success small mb-0"><i class="fa-solid fa-arrow-up"></i> +4.2% monthly growth</p>
+      <i class="fa-solid fa-list-check" style="font-size: 24px; color: #10b981; margin-bottom: 10px;"></i>
+      <h6 class="text-muted">Model Vocabulary Size</h6>
+      <h2 style="font-weight: 700; color: var(--text-primary);">2,500</h2>
+      <p class="text-success small mb-0"><i class="fa-solid fa-chart-line"></i> Optimized TF-IDF Features</p>
     </div>
   </div>
   <div class="col-md-4">
     <div class="card-glass text-center">
-      <i class="fa-solid fa-clock" style="font-size: 24px; color: #f59e0b; margin-bottom: 10px;"></i>
-      <h6 class="text-muted">Minutes Since First Tweet</h6>
-      <h2 style="font-weight: 700; color: var(--text-primary);">7,447,680</h2>
-      <p class="text-muted small mb-0">Twitter history tracking</p>
+      <i class="fa-solid fa-gauge-high" style="font-size: 24px; color: #f59e0b; margin-bottom: 10px;"></i>
+      <h6 class="text-muted">Avg Processing Speed</h6>
+      <h2 style="font-weight: 700; color: var(--text-primary);">0.08 s</h2>
+      <p class="text-muted small mb-0">High-performance pipeline</p>
     </div>
   </div>
 </div>
@@ -99,14 +99,14 @@
     <a href="/sentiment" class="feature-card d-block">
       <i class="fa-solid fa-face-smile feature-icon"></i>
       <h3 style="font-weight: 700; color: var(--text-primary);">Sentiment Analysis</h3>
-      <p class="text-muted mb-0">Import tweets and categorize them into Positive, Neutral, or Negative sentiments with live interactive dashboards.</p>
+      <p class="text-muted mb-0">Upload custom CSV files or enter text manually to classify positive, neutral, or negative polarities.</p>
     </a>
   </div>
   <div class="col-md-6 mb-4">
     <a href="/emotion" class="feature-card d-block">
       <i class="fa-solid fa-heart feature-icon" style="color: #ec4899;"></i>
       <h3 style="font-weight: 700; color: var(--text-primary);">Emotion Classification</h3>
-      <p class="text-muted mb-0">Analyze deep-seated emotions including Love, Happiness, Worry, Sadness, and Hate using state-of-the-art classifier models.</p>
+      <p class="text-muted mb-0">Analyze deep-seated emotions including Love, Happiness, Worry, Sadness, and Hate using NLP classifier models.</p>
     </a>
   </div>
 </div>

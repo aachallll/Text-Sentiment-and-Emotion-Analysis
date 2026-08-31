@@ -73,17 +73,8 @@
   <form method="POST" id="compareForm" onsubmit="showLoader()">
     {% csrf_token %}
     
-    <!-- Mode Selection -->
-    <div class="text-center mb-4">
-      <div class="form-check form-check-inline mx-3">
-        <input class="form-check-input" type="radio" name="mode" id="modeLive" value="live" checked>
-        <label class="form-check-label" for="modeLive" style="font-weight: 600; color: var(--text-primary);">Real-Time Twitter API</label>
-      </div>
-      <div class="form-check form-check-inline mx-3">
-        <input class="form-check-input" type="radio" name="mode" id="modeDataset" value="dataset">
-        <label class="form-check-label" for="modeDataset" style="font-weight: 600; color: var(--text-primary);">Kaggle Dataset Mode</label>
-      </div>
-    </div>
+    <!-- Search queries compared in dataset -->
+    <p class="text-center text-muted small mb-4">Matches topics in the preloaded text_emotion database to compile side-by-side comparison stats.</p>
 
     <div class="row">
       <div class="col-md-6 mb-3">

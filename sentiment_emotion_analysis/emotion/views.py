@@ -47,37 +47,91 @@ def emotion_analysis_type(request):
         return render(request, 'home/emotion_type.html')
 
 def emotion_analysis_import(request):
+    error_message = None
     if request.method == 'POST':
-        form = Emotion_Imported_Tweet_analyse_form(request.POST)
+        csv_file = request.FILES.get('csv_file')
+        handle = request.POST.get('emotion_imported_tweet', '').strip()
         analyse = emotion_analysis_code()
-
-        if form.is_valid():
-            handle = form.cleaned_data['emotion_imported_tweet'].strip()
-
+        
+        list_of_tweets_and_emotions = []
+        tweet_texts = []
+        detailed_counts = {'worry': 0, 'happiness': 0, 'sadness': 0, 'love': 0, 'hate': 0}
+        
+        if csv_file:
+            if not csv_file.name.endswith('.csv'):
+                error_message = "Invalid file format. Please upload a valid CSV file (.csv)."
+                return render(request, 'home/emotion_import.html', {'error_message': error_message})
+                
             try:
-                # Fetch live tweets using service layer (with error checks, no mock fallback)
-                if handle.startswith('#'):
-                    live_tweets = twitter_service.fetch_tweets_by_query(handle)
-                else:
-                    search_handle = handle[1:] if handle.startswith('@') else handle
-                    live_tweets = twitter_service.fetch_tweets_by_user(search_handle)
-            except TwitterServiceException as e:
-                args = {
-                    'form': form,
-                    'error_message': str(e)
-                }
-                return render(request, 'home/emotion_import.html', args)
-
-            # Save search to database if user is logged in
-            if request.user.is_authenticated:
-                SearchHistory.objects.create(user=request.user, query=handle, analysis_type='emotion')
-
-            list_of_tweets_and_emotions = []
-            detailed_counts = {'worry': 0, 'happiness': 0, 'sadness': 0, 'love': 0, 'hate': 0}
-            tweet_texts = [t.text for t in live_tweets]
+                import pandas as pd
+                df = pd.read_csv(csv_file)
+                if df.empty:
+                    error_message = "The uploaded CSV file is empty."
+                    return render(request, 'home/emotion_import.html', {'error_message': error_message})
+                
+                # Detect text column
+                text_col = None
+                for col in ['text', 'content', 'tweet', 'comment', 'message', 'text_emotion', 'tweet_text']:
+                    if col in df.columns:
+                        text_col = col
+                        break
+                if not text_col:
+                    text_col = df.columns[0]
+                    
+                df = df.dropna(subset=[text_col])
+                sample_rows = df.head(50)
+                handle = csv_file.name
+                
+                for idx, row in sample_rows.iterrows():
+                    raw_text = str(row[text_col])
+                    emotion = analyse.predict_emotion(raw_text).lower()
+                    
+                    matched = False
+                    for k in detailed_counts.keys():
+                        if k in emotion:
+                            detailed_counts[k] += 1
+                            matched = True
+                            break
+                    if not matched:
+                        if 'worry' in emotion or 'anxiety' in emotion:
+                            detailed_counts['worry'] += 1
+                        else:
+                            detailed_counts['happiness'] += 1
+                            
+                    tweet_texts.append(raw_text)
+                    list_of_tweets_and_emotions.append({
+                        'username': row.get('username', row.get('author', f'User_{idx}')),
+                        'text': raw_text,
+                        'created_at': row.get('created_at', 'N/A'),
+                        'likes': int(row.get('likes', 0)),
+                        'retweets': int(row.get('retweets', 0)),
+                        'replies': int(row.get('replies', 0)),
+                        'lang': 'en',
+                        'verified': False,
+                        'emotion': emotion.capitalize()
+                    })
+                
+                from sentiment_or_emotion.views import add_notification
+                add_notification(request, f"Successfully uploaded and analyzed dataset for emotions: {csv_file.name}")
+                
+            except Exception as e:
+                error_message = f"Error reading CSV: {e}"
+                return render(request, 'home/emotion_import.html', {'error_message': error_message})
+                
+        elif handle:
+            from sentiment.views import dataset_service
+            source_indicator = "Kaggle Dataset (text_emotion.csv)"
+            live_tweets = dataset_service.query_dataset(handle)
+            if not live_tweets:
+                error_message = f"No records matching '{handle}' were found in the dataset."
+                return render(request, 'home/emotion_import.html', {'error_message': error_message})
+                
+            tweet_texts = [t['text'] for t in live_tweets]
             
-            for tweet in live_tweets:
-                emotion = analyse.predict_emotion(tweet.text).lower()
+            for t in live_tweets:
+                raw_text = t['text']
+                emotion = analyse.predict_emotion(raw_text).lower()
+                
                 matched = False
                 for k in detailed_counts.keys():
                     if k in emotion:
@@ -91,48 +145,51 @@ def emotion_analysis_import(request):
                         detailed_counts['happiness'] += 1
                         
                 list_of_tweets_and_emotions.append({
-                    'username': tweet.username,
-                    'text': tweet.text,
-                    'created_at': tweet.created_at,
-                    'likes': tweet.likes,
-                    'retweets': tweet.retweets,
-                    'replies': tweet.replies,
-                    'lang': tweet.lang,
-                    'verified': tweet.verified,
+                    'username': t['username'],
+                    'text': raw_text,
+                    'created_at': t['created_at'],
+                    'likes': t['likes'],
+                    'retweets': t['retweets'],
+                    'replies': t['replies'],
+                    'lang': 'en',
+                    'verified': t['verified'],
                     'emotion': emotion.capitalize()
                 })
-
-            # Advanced metrics
-            aspects = analyze_aspects(tweet_texts)
-            toxicity = detect_toxicity(tweet_texts)
-            bot_score = detect_bots(tweet_texts)
-            summary = generate_summary(tweet_texts)
-            top_hashtags, top_keywords = extract_keywords_and_hashtags(tweet_texts)
-            trends = generate_historical_trends(tweet_texts)
-            
-            # Cache to session for exporting reports
-            request.session['last_analysis_tweets'] = tweet_texts
-            request.session['last_analysis_handle'] = handle
-
+                
+            if request.user.is_authenticated:
+                SearchHistory.objects.create(user=request.user, query=handle, analysis_type='emotion_dataset')
+                
             from sentiment_or_emotion.views import add_notification
-            add_notification(request, f"New live tweets successfully fetched and emotion analyzed for: {handle}")
-
-            args = {
-                'list_of_tweets_and_emotions': list_of_tweets_and_emotions, 
-                'handle': handle,
-                'detailed_counts': detailed_counts,
-                'aspects': aspects,
-                'toxicity': toxicity,
-                'bot_score': bot_score,
-                'summary': summary,
-                'top_hashtags': top_hashtags,
-                'top_keywords': top_keywords,
-                'trends': trends
-            }
+            add_notification(request, f"Dataset emotion analysis query completed for: {handle}")
             
-            if handle.startswith('#'):
-                return render(request, 'home/emotion_import_result_hashtag.html', args)
-            return render(request, 'home/emotion_import_result.html', args)
+        else:
+            error_message = "Please input a search keyword or upload a CSV file."
+            return render(request, 'home/emotion_import.html', {'error_message': error_message})
+
+        # Advanced metrics
+        aspects = analyze_aspects(tweet_texts)
+        toxicity = detect_toxicity(tweet_texts)
+        bot_score = detect_bots(tweet_texts)
+        summary = generate_summary(tweet_texts)
+        top_hashtags, top_keywords = extract_keywords_and_hashtags(tweet_texts)
+        trends = generate_historical_trends(tweet_texts)
+        
+        request.session['last_analysis_tweets'] = tweet_texts
+        request.session['last_analysis_handle'] = handle
+        
+        args = {
+            'list_of_tweets_and_emotions': list_of_tweets_and_emotions, 
+            'handle': handle,
+            'detailed_counts': detailed_counts,
+            'aspects': aspects,
+            'toxicity': toxicity,
+            'bot_score': bot_score,
+            'summary': summary,
+            'top_hashtags': top_hashtags,
+            'top_keywords': top_keywords,
+            'trends': trends
+        }
+        return render(request, 'home/emotion_import_result.html', args)
 
     else:
         form = Emotion_Imported_Tweet_analyse_form()

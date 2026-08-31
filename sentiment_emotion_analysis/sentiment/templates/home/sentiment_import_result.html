@@ -395,5 +395,13 @@
   document.getElementById('filterSentiment').addEventListener('change', applyFilters);
   document.getElementById('filterKeyword').addEventListener('input', applyFilters);
   document.getElementById('filterVerified').addEventListener('change', applyFilters);
+
+  $(document).ready(function() {
+    $('#exportMenu').click(function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      $(this).next('.dropdown-menu').toggle();
+    });
+  });
 </script>
 {% endblock %}

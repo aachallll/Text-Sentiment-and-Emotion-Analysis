@@ -1,7 +1,7 @@
 {% extends 'home/base.html' %}
 {% load static %}
 
-{% block title %}Import Search - Sentiment Analysis{% endblock %}
+{% block title %}CSV & Keyword Search - Sentiment Analysis{% endblock %}
 {% block active_sent %}active{% endblock %}
 
 {% block extra_css %}
@@ -15,10 +15,6 @@
     padding: 40px;
     box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
   }
-  .form-check-input:checked {
-    background-color: var(--primary-color) !important;
-    border-color: var(--primary-color) !important;
-  }
   .btn-submit {
     background-color: var(--primary-color) !important;
     color: white !important;
@@ -31,19 +27,38 @@
   .btn-submit:hover {
     transform: translateY(-2px);
   }
+  .divider {
+    display: flex;
+    align-items: center;
+    text-align: center;
+    margin: 20px 0;
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    border-bottom: 1px solid var(--border-color);
+  }
+  .divider:not(:empty)::before {
+    margin-right: .25em;
+  }
+  .divider:not(:empty)::after {
+    margin-left: .25em;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row mb-4">
   <div class="col-md-12 text-center">
-    <h1 style="font-weight: 800; color: var(--text-primary);">Sentiment Analysis</h1>
-    <p class="text-muted">Import live Twitter timelines or hashtags to analyze public sentiment splits.</p>
+    <h1 style="font-weight: 800; color: var(--text-primary);">CSV Dataset & Keyword Analysis</h1>
+    <p class="text-muted">Upload custom social media CSV files or search the preloaded database to analyze sentiment splits.</p>
   </div>
 </div>
 
 <div class="search-card">
-  <h4 class="text-center mb-4" style="font-weight: 700; color: var(--text-primary);">Import Live Data</h4>
+  <h4 class="text-center mb-4" style="font-weight: 700; color: var(--text-primary);">Choose Data Source</h4>
   
   {% if error_message %}
     <div class="alert alert-danger mb-4" style="background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; border-radius: 10px; padding: 15px;">
@@ -51,36 +66,48 @@
     </div>
   {% endif %}
 
-  <form method="POST">
+  <form method="POST" enctype="multipart/form-data" id="analysisForm">
     {% csrf_token %}
     
-    <!-- Mode Selection -->
-    <div class="text-center mb-4">
-      <div class="form-check form-check-inline mx-3">
-        <input class="form-check-input" type="radio" name="mode" id="modeLive" value="live" checked>
-        <label class="form-check-label" for="modeLive" style="font-weight: 600; color: var(--text-primary);">Real-Time Twitter API</label>
-      </div>
-      <div class="form-check form-check-inline mx-3">
-        <input class="form-check-input" type="radio" name="mode" id="modeDataset" value="dataset">
-        <label class="form-check-label" for="modeDataset" style="font-weight: 600; color: var(--text-primary);">Kaggle Dataset Mode</label>
-      </div>
-    </div>
-
-    <!-- Search Query Input -->
-    <div class="form-group mb-4">
-      <label for="sentiment_imported_tweet" style="font-weight: 500; color: var(--text-secondary);">Twitter Username, Hashtag, or Keyword</label>
+    <!-- Option A: Keyword Database Search -->
+    <div class="form-group mb-2">
+      <label for="sentiment_imported_tweet" style="font-weight: 600; color: var(--text-primary);">Option 1: Search Dataset Keyword</label>
       <div class="input-group">
         <div class="input-group-prepend">
           <span class="input-group-text" style="background: transparent; border: 1px solid var(--border-color); border-right: none; border-radius: 10px 0 0 10px; color: var(--text-secondary);">
             <i class="fa-solid fa-magnifying-glass"></i>
           </span>
         </div>
-        <input type="text" id="sentiment_imported_tweet" name="sentiment_imported_tweet" class="form-control" placeholder="e.g. @elonmusk, #ChatGPT, or OpenAI" required style="border-radius: 0 10px 10px 0 !important; border-left: none !important;">
+        <input type="text" id="sentiment_imported_tweet" name="sentiment_imported_tweet" class="form-control" placeholder="e.g. OpenAI, happy, love, worry" style="border-radius: 0 10px 10px 0 !important; border-left: none !important;">
       </div>
-      <small class="text-muted mt-2 d-block">Search results query the live Twitter (X) API stream or pull records from the preloaded Kaggle dataset CSV.</small>
+      <small class="text-muted mt-2 d-block">Search matching keywords or topics in the preloaded text_emotion dataset.</small>
     </div>
 
-    <button type="submit" class="btn btn-submit mt-2">Analyze Tweets <i class="fa-solid fa-arrow-right ml-1"></i></button>
+    <div class="divider">OR</div>
+
+    <!-- Option B: CSV Dataset File Upload -->
+    <div class="form-group mb-4">
+      <label for="csv_file" style="font-weight: 600; color: var(--text-primary);">Option 2: Upload CSV Dataset File</label>
+      <input type="file" id="csv_file" name="csv_file" class="form-control-file p-2" accept=".csv" style="border: 1px dashed var(--border-color); border-radius: 10px; width: 100%;">
+      <small class="text-muted mt-2 d-block">Select a custom .csv file containing a text or content column to perform batch sentiment predictions.</small>
+    </div>
+
+    <button type="submit" class="btn btn-submit mt-2">Process & Analyze <i class="fa-solid fa-arrow-right ml-1"></i></button>
   </form>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Simple validation to ensure at least one is filled
+  document.getElementById('analysisForm').onsubmit = function() {
+    const keyword = document.getElementById('sentiment_imported_tweet').value.trim();
+    const file = document.getElementById('csv_file').value;
+    if (!keyword && !file) {
+      alert("Please enter a search keyword OR upload a CSV dataset file.");
+      return false;
+    }
+    return true;
+  };
+</script>
 {% endblock %}

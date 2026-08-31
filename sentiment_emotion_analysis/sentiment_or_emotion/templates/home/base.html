@@ -252,8 +252,8 @@
     <!-- Sidebar -->
     <div class="sidebar">
       <div class="logo-container">
-        <i class="fa-brands fa-twitter logo-icon"></i>
-        <span class="logo-text">Tweet Analyzer</span>
+        <i class="fa-solid fa-brain logo-icon"></i>
+        <span class="logo-text" style="font-size: 16px;">NLP Sentiment Analyzer</span>
       </div>
       
       <ul class="nav-menu">
@@ -264,12 +264,12 @@
         </li>
         <li>
           <a href="/sentiment" class="nav-item-link {% block active_sent %}{% endblock %}">
-            <i class="fa-solid fa-bolt"></i> Real-time Analysis
+            <i class="fa-solid fa-bolt"></i> Sentiment Analysis
           </a>
         </li>
         <li>
           <a href="/sentiment/dataset-analysis/" class="nav-item-link {% block active_dataset %}{% endblock %}">
-            <i class="fa-solid fa-database"></i> Dataset Analysis
+            <i class="fa-solid fa-database"></i> Model Evaluation
           </a>
         </li>
         <li>
@@ -302,7 +302,7 @@
       <div class="ai-assistant-card">
         <i class="fa-solid fa-robot" style="font-size: 32px; color: var(--primary-color);"></i>
         <h6 class="mt-2 mb-1" style="font-weight: 600;">AI Assistant</h6>
-        <p class="text-muted small mb-0">Ask me anything about tweet sentiments!</p>
+        <p class="text-muted small mb-0">Ask me anything about text sentiments!</p>
         <button class="ai-assistant-btn" onclick="location.href='/sentiment/chatbot/'">Chat Now <i class="fa-solid fa-arrow-right"></i></button>
       </div>
     </div>
@@ -313,7 +313,7 @@
       <div class="top-header">
         <div class="search-bar-container">
           <i class="fa-solid fa-magnifying-glass text-muted"></i>
-          <input type="text" placeholder="Search keywords, hashtags or @username...">
+          <input type="text" placeholder="Search keywords or datasets...">
         </div>
         
         <div class="header-right">
