@@ -1,7 +1,7 @@
 {% extends 'home/base.html' %}
 {% load static %}
 
-{% block title %}Dashboard - Social NLP Analyzer{% endblock %}
+{% block title %}Dashboard - Text Sentiment and Emotion Analysis{% endblock %}
 {% block active_home %}active{% endblock %}
 
 {% block extra_css %}
@@ -19,7 +19,7 @@
     transition: all 0.3s ease;
     cursor: pointer;
     text-decoration: none !important;
-    min-height: 250px;
+    min-height: 230px;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -31,82 +31,97 @@
     border-color: var(--primary-color);
   }
   .feature-icon {
-    font-size: 40px;
+    font-size: 38px;
     color: var(--primary-color);
-    margin-bottom: 20px;
+    margin-bottom: 18px;
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row align-items-center mb-5">
-  <div class="col-md-8">
-    <h1 style="font-weight: 800; color: var(--text-primary);">Dashboard</h1>
-    <p class="text-muted">Overview of social media sentiment and emotions using Natural Language Processing.</p>
+<div class="row align-items-center mb-4">
+  <div class="col-md-10">
+    <h1 style="font-weight: 800; color: var(--text-primary); font-size: 28px; margin-bottom: 6px;">
+      Text Sentiment and Emotion Analysis Using NLP and Machine Learning
+    </h1>
+    <p class="text-muted" style="font-size: 15px;">
+      A clean academic Natural Language Processing system for text polarity classification and multi-class emotion recognition.
+    </p>
   </div>
 </div>
 
 <!-- KPI Counters Row -->
 <div class="row kpi-row">
-  <div class="col-md-4">
-    <div class="card-glass text-center">
+  <div class="col-md-4 mb-3">
+    <div class="card-glass text-center p-4">
       <i class="fa-solid fa-comments" style="font-size: 24px; color: var(--primary-color); margin-bottom: 10px;"></i>
-      <h6 class="text-muted">Comments Analyzed</h6>
-      <h2 style="font-weight: 700; color: var(--text-primary);">40,000+</h2>
-      <p class="text-success small mb-0"><i class="fa-solid fa-circle-check"></i> Dataset parsed successfully</p>
+      <h6 class="text-muted small text-uppercase" style="letter-spacing: 0.5px;">Sentences Evaluated</h6>
+      <h2 style="font-weight: 800; color: var(--text-primary); margin: 8px 0;">40,000+</h2>
+      <p class="text-success small mb-0"><i class="fa-solid fa-circle-check"></i> Standard Benchmark Dataset</p>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="card-glass text-center">
+  <div class="col-md-4 mb-3">
+    <div class="card-glass text-center p-4">
       <i class="fa-solid fa-list-check" style="font-size: 24px; color: #10b981; margin-bottom: 10px;"></i>
-      <h6 class="text-muted">Model Vocabulary Size</h6>
-      <h2 style="font-weight: 700; color: var(--text-primary);">2,500</h2>
-      <p class="text-success small mb-0"><i class="fa-solid fa-chart-line"></i> Optimized TF-IDF Features</p>
+      <h6 class="text-muted small text-uppercase" style="letter-spacing: 0.5px;">Model Feature Space</h6>
+      <h2 style="font-weight: 800; color: var(--text-primary); margin: 8px 0;">2,500</h2>
+      <p class="text-success small mb-0"><i class="fa-solid fa-chart-line"></i> Optimized TF-IDF N-grams</p>
     </div>
   </div>
-  <div class="col-md-4">
-    <div class="card-glass text-center">
+  <div class="col-md-4 mb-3">
+    <div class="card-glass text-center p-4">
       <i class="fa-solid fa-gauge-high" style="font-size: 24px; color: #f59e0b; margin-bottom: 10px;"></i>
-      <h6 class="text-muted">Avg Processing Speed</h6>
-      <h2 style="font-weight: 700; color: var(--text-primary);">0.08 s</h2>
-      <p class="text-muted small mb-0">High-performance pipeline</p>
+      <h6 class="text-muted small text-uppercase" style="letter-spacing: 0.5px;">Inference Latency</h6>
+      <h2 style="font-weight: 800; color: var(--text-primary); margin: 8px 0;">&lt; 0.05 s</h2>
+      <p class="text-muted small mb-0"><i class="fa-solid fa-bolt"></i> Real-time NLP Pipeline</p>
     </div>
   </div>
 </div>
 
-<!-- History and shortcuts panel -->
-{% if user.is_authenticated %}
-<div class="card-glass">
-  <h5 class="text-white mb-3" style="font-weight: 600; color: var(--text-primary) !important;"><i class="fa-solid fa-clock-rotate-left"></i> Your Recent Search History</h5>
-  <div class="d-flex flex-wrap">
-    {% for item in history %}
-      <span class="badge p-2 m-1" style="background: var(--accent-hover); border: 1px solid var(--primary-color); border-radius: 20px; font-size: 13px; color: var(--primary-color);">
-        <i class="fa-solid fa-magnifying-glass mr-1"></i> {{ item.query }} ({{ item.analysis_type }})
-      </span>
-    {% empty %}
-      <span class="text-muted">No searches yet. Perform your first analysis using the shortcuts below!</span>
-    {% endfor %}
-  </div>
-  {% if history %}
-    <a href="/delete-history/" class="btn btn-sm btn-outline-danger mt-3" style="border-radius: 15px;">Clear History</a>
-  {% endif %}
-</div>
-{% endif %}
-
-<!-- Primary Features/Shortcuts -->
-<div class="row mt-4">
+<!-- Primary Feature Cards (4 Academic Core Modules) -->
+<h4 style="font-weight: 800; color: var(--text-primary);" class="mb-3">Core Modules</h4>
+<div class="row">
+  <!-- 1. Manual Text Analysis -->
   <div class="col-md-6 mb-4">
-    <a href="/sentiment" class="feature-card d-block">
-      <i class="fa-solid fa-face-smile feature-icon"></i>
-      <h3 style="font-weight: 700; color: var(--text-primary);">Sentiment Analysis</h3>
-      <p class="text-muted mb-0">Upload custom CSV files or enter text manually to classify positive, neutral, or negative polarities.</p>
+    <a href="/sentiment/type/" class="feature-card d-block">
+      <i class="fa-solid fa-keyboard feature-icon"></i>
+      <h4 style="font-weight: 700; color: var(--text-primary);">Manual Text Analysis</h4>
+      <p class="text-muted mb-0">
+        Enter or paste a sentence to detect sentiment polarity (Positive, Neutral, Negative) and emotional tone (Happiness, Love, Worry, Sadness, Hate) with confidence scoring.
+      </p>
     </a>
   </div>
+
+  <!-- 2. CSV Dataset Analysis -->
   <div class="col-md-6 mb-4">
-    <a href="/emotion" class="feature-card d-block">
-      <i class="fa-solid fa-heart feature-icon" style="color: #ec4899;"></i>
-      <h3 style="font-weight: 700; color: var(--text-primary);">Emotion Classification</h3>
-      <p class="text-muted mb-0">Analyze deep-seated emotions including Love, Happiness, Worry, Sadness, and Hate using NLP classifier models.</p>
+    <a href="/sentiment/import/" class="feature-card d-block">
+      <i class="fa-solid fa-file-csv feature-icon" style="color: #10b981;"></i>
+      <h4 style="font-weight: 700; color: var(--text-primary);">CSV Dataset Analysis</h4>
+      <p class="text-muted mb-0">
+        Upload a CSV file with social media comments or query dataset records to generate sentiment and emotion distribution charts with printable PDF reports.
+      </p>
+    </a>
+  </div>
+
+  <!-- 3. NLP Preprocessing Playground -->
+  <div class="col-md-6 mb-4">
+    <a href="/sentiment/playground/" class="feature-card d-block">
+      <i class="fa-solid fa-gears feature-icon" style="color: #6366f1;"></i>
+      <h4 style="font-weight: 700; color: var(--text-primary);">NLP Preprocessing Pipeline</h4>
+      <p class="text-muted mb-0">
+        Explore the educational step-by-step transformation: lowercasing, mention/URL removal, tokenization, stopword filtering, stemming, and lemmatization.
+      </p>
+    </a>
+  </div>
+
+  <!-- 4. Interactive Sentiment Quiz -->
+  <div class="col-md-6 mb-4">
+    <a href="/sentiment/quiz/" class="feature-card d-block">
+      <i class="fa-solid fa-gamepad feature-icon" style="color: #ec4899;"></i>
+      <h4 style="font-weight: 700; color: var(--text-primary);">Sentiment Quiz</h4>
+      <p class="text-muted mb-0">
+        Test human linguistic discernment against automated machine learning models with 10 questions and instant contextual explanations.
+      </p>
     </a>
   </div>
 </div>

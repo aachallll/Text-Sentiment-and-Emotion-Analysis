@@ -1,6 +1,6 @@
 import csv
 from django.shortcuts import render, redirect
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
 from textblob import TextBlob
 
@@ -17,7 +17,8 @@ from .dataset_service import DatasetService
 from .nlp_utils import (
     analyze_confidence, analyze_aspects, detect_toxicity, 
     detect_bots, generate_summary, extract_keywords_and_hashtags, 
-    generate_historical_trends
+    generate_historical_trends, validate_natural_language_input,
+    predict_emotion_with_threshold
 )
 
 # Initialize service singletons
@@ -26,38 +27,68 @@ model_service = SentimentModelService()
 dataset_service = DatasetService()
 
 def sentiment_analysis(request):
-    return render(request, 'home/sentiment.html')
+    return redirect('/sentiment/type/')
 
 def sentiment_analysis_type(request):
+    """Analyze manual text for both sentiment and emotion with input validation."""
     if request.method == 'POST':
-        form = Sentiment_Typed_Tweet_analyse_form(request.POST)
-        if form.is_valid():
-            tweet = form.cleaned_data['sentiment_typed_tweet']
+        is_ajax = (request.headers.get('x-requested-with') == 'XMLHttpRequest' or 
+                   request.content_type == 'application/json' or
+                   request.POST.get('format') == 'json')
+        
+        raw_text = request.POST.get('sentiment_typed_tweet', '').strip()
+        if not raw_text and request.body:
+            try:
+                import json
+                body_data = json.loads(request.body)
+                raw_text = body_data.get('sentiment_typed_tweet', body_data.get('text', '')).strip()
+            except Exception:
+                pass
+                
+        # 1. Generic Natural Language Validation
+        is_valid, val_error = validate_natural_language_input(raw_text)
+        if not is_valid:
+            if is_ajax:
+                return JsonResponse({'status': 'error', 'message': val_error}, status=400)
+            return render(request, 'home/sentiment_type.html', {'error_message': val_error, 'tweet': raw_text})
             
-            sentiment, confidence = model_service.analyze_sentiment(tweet)
-            tb = TextBlob(tweet)
-            
-            args = {
-                'tweet': tweet, 
+        # 2. Sentiment Classification
+        sentiment, confidence = model_service.analyze_sentiment(raw_text)
+        
+        # 3. Emotion Detection with threshold
+        emotion, emotion_confidence = predict_emotion_with_threshold(raw_text, sentiment)
+        
+        if is_ajax:
+            return JsonResponse({
+                'status': 'success',
+                'text': raw_text,
                 'sentiment': sentiment,
                 'confidence': confidence,
-                'subjectivity': int(tb.sentiment.subjectivity * 100)
-            }
-            return render(request, 'home/sentiment_type_result.html', args)
-    else:
-        form = Sentiment_Typed_Tweet_analyse_form()
-        return render(request, 'home/sentiment_type.html')
+                'emotion': emotion,
+                'emotion_confidence': emotion_confidence
+            })
+            
+        args = {
+            'result': True,
+            'tweet': raw_text,
+            'sentiment': sentiment,
+            'confidence': confidence,
+            'emotion': emotion,
+            'emotion_confidence': emotion_confidence
+        }
+        return render(request, 'home/sentiment_type.html', args)
+        
+    return render(request, 'home/sentiment_type.html')
 
 def sentiment_analysis_import(request):
+    """CSV dataset analysis or offline database keyword search."""
     error_message = None
     if request.method == 'POST':
         csv_file = request.FILES.get('csv_file')
         handle = request.POST.get('sentiment_imported_tweet', '').strip()
         
-        list_of_tweets_and_sentiments = []
-        tweet_texts = []
+        records = []
         source_indicator = ""
-        mode = "dataset"
 
         if csv_file:
             if not csv_file.name.endswith('.csv'):
@@ -73,46 +104,49 @@ def sentiment_analysis_import(request):
                 
                 # Detect text column
                 text_col = None
-                for col in ['text', 'content', 'tweet', 'comment', 'message', 'text_emotion', 'tweet_text']:
+                candidate_cols = ['text', 'tweet', 'content', 'comment', 'sentence', 'message', 'text_emotion', 'tweet_text']
+                for col in candidate_cols:
                     if col in df.columns:
                         text_col = col
                         break
                 if not text_col:
-                    text_col = df.columns[0]
+                    lower_cols = {c.lower(): c for c in df.columns}
+                    for cand in candidate_cols:
+                        if cand in lower_cols:
+                            text_col = lower_cols[cand]
+                            break
+                            
+                if not text_col:
+                    for col in df.columns:
+                        if df[col].dtype == object or df[col].dtype == 'string':
+                            text_col = col
+                            break
+                            
+                if not text_col:
+                    error_message = "No valid text column was found. Please upload a CSV containing a text, tweet, comment, content, or sentence column."
+                    return render(request, 'home/sentiment_import.html', {'error_message': error_message})
                     
                 df = df.dropna(subset=[text_col])
-                sample_rows = df.head(50)
+                sample_rows = df.head(60)
                 handle = csv_file.name
                 source_indicator = f"Uploaded CSV ({csv_file.name})"
                 
                 for idx, row in sample_rows.iterrows():
-                    raw_text = str(row[text_col])
+                    raw_text = str(row[text_col]).strip()
+                    if not raw_text or len(raw_text) < 2:
+                        continue
                     sentiment, confidence = model_service.analyze_sentiment(raw_text)
-                    if sentiment == 'Positive':
-                        detailed = 'Very Positive' if confidence > 80 else 'Positive'
-                    elif sentiment == 'Negative':
-                        detailed = 'Very Negative' if confidence > 80 else 'Negative'
-                    else:
-                        detailed = 'Neutral'
-                        
-                    tweet_texts.append(raw_text)
-                    list_of_tweets_and_sentiments.append({
-                        'username': row.get('username', row.get('author', f'User_{idx}')),
+                    emotion, em_conf = predict_emotion_with_threshold(raw_text, sentiment)
+                    
+                    records.append({
+                        'id': idx + 1,
                         'text': raw_text,
-                        'created_at': row.get('created_at', 'N/A'),
-                        'likes': int(row.get('likes', 0)),
-                        'retweets': int(row.get('retweets', 0)),
-                        'replies': int(row.get('replies', 0)),
-                        'lang': 'en',
-                        'verified': False,
                         'sentiment': sentiment,
-                        'detailed': detailed,
-                        'confidence': confidence
+                        'confidence': confidence,
+                        'emotion': emotion,
+                        'emotion_confidence': em_conf
                     })
-                
-                from sentiment_or_emotion.views import add_notification
-                add_notification(request, f"Successfully uploaded and analyzed dataset: {csv_file.name}")
-                
+                    
             except Exception as e:
                 error_message = f"Error reading CSV: {e}"
                 return render(request, 'home/sentiment_import.html', {'error_message': error_message})
@@ -124,117 +158,164 @@ def sentiment_analysis_import(request):
                 error_message = f"No records matching '{handle}' were found in the dataset."
                 return render(request, 'home/sentiment_import.html', {'error_message': error_message})
                 
-            tweet_texts = [t['text'] for t in live_tweets]
-            list_of_tweets_and_sentiments = live_tweets
-            
-            if request.user.is_authenticated:
-                SearchHistory.objects.create(user=request.user, query=handle, analysis_type='sentiment_dataset')
-                
-            from sentiment_or_emotion.views import add_notification
-            add_notification(request, f"Dataset sentiment analysis query completed for: {handle}")
-            
+            for idx, t in enumerate(live_tweets):
+                raw_text = t['text'].strip()
+                sentiment, confidence = model_service.analyze_sentiment(raw_text)
+                emotion, em_conf = predict_emotion_with_threshold(raw_text, sentiment)
+                records.append({
+                    'id': idx + 1,
+                    'text': raw_text,
+                    'sentiment': sentiment,
+                    'confidence': confidence,
+                    'emotion': emotion,
+                    'emotion_confidence': em_conf
+                })
         else:
-            error_message = "Please input a search keyword or upload a CSV file."
+            error_message = "Please enter a search keyword or upload a CSV file."
             return render(request, 'home/sentiment_import.html', {'error_message': error_message})
 
-        # Calculate detailed distribution percentages
-        detailed_counts = {'Very Positive': 0, 'Positive': 0, 'Neutral': 0, 'Negative': 0, 'Very Negative': 0}
-        for item in list_of_tweets_and_sentiments:
-            detailed_counts[item['detailed']] += 1
+        if not records:
+            error_message = "No valid text entries could be parsed from the provided input."
+            return render(request, 'home/sentiment_import.html', {'error_message': error_message})
 
-        # Advanced metrics from helper module
-        aspects = analyze_aspects(tweet_texts)
-        toxicity = detect_toxicity(tweet_texts)
-        bot_score = detect_bots(tweet_texts)
-        summary = generate_summary(tweet_texts)
-        top_hashtags, top_keywords = extract_keywords_and_hashtags(tweet_texts)
-        trends = generate_historical_trends(tweet_texts)
+        # Calculate sentiment counts & percentages
+        total_count = len(records)
+        pos_count = sum(1 for r in records if r['sentiment'] == 'Positive')
+        neu_count = sum(1 for r in records if r['sentiment'] == 'Neutral')
+        neg_count = sum(1 for r in records if r['sentiment'] == 'Negative')
         
-        # Cache results in session to support export downloads
-        request.session['last_analysis_tweets'] = tweet_texts
-        request.session['last_analysis_handle'] = handle
+        pos_pct = round((pos_count / total_count * 100), 1) if total_count > 0 else 0
+        neu_pct = round((neu_count / total_count * 100), 1) if total_count > 0 else 0
+        neg_pct = round((neg_count / total_count * 100), 1) if total_count > 0 else 0
 
-        args = {
-            'list_of_tweets_and_sentiments': list_of_tweets_and_sentiments, 
-            'handle': handle,
-            'mode': mode,
-            'source_indicator': source_indicator,
-            'detailed_counts': detailed_counts,
-            'aspects': aspects,
-            'toxicity': toxicity,
-            'bot_score': bot_score,
-            'summary': summary,
-            'top_hashtags': top_hashtags,
-            'top_keywords': top_keywords,
-            'trends': trends
+        # Calculate emotion counts
+        emotion_counts = {
+            'Happiness': sum(1 for r in records if r['emotion'] == 'Happiness'),
+            'Love': sum(1 for r in records if r['emotion'] == 'Love'),
+            'Worry': sum(1 for r in records if r['emotion'] == 'Worry'),
+            'Sadness': sum(1 for r in records if r['emotion'] == 'Sadness'),
+            'Hate': sum(1 for r in records if r['emotion'] == 'Hate')
         }
         
-        if handle.startswith('#'):
-            return render(request, 'home/sentiment_import_result_hashtag.html', args)
-        return render(request, 'home/sentiment_import_result.html', args)
+        dominant_emotion = max(emotion_counts, key=emotion_counts.get) if any(emotion_counts.values()) else "Neutral"
+        dominant_sentiment = "Positive" if pos_count >= max(neu_count, neg_count) else ("Negative" if neg_count >= neu_count else "Neutral")
 
-    else:
-        form = Sentiment_Imported_Tweet_analyse_form()
-        return render(request, 'home/sentiment_import.html')
-
-def dataset_analysis_view(request):
-    """Run model training and display evaluation comparison dashboard."""
-    metrics = dataset_service.train_and_evaluate()
-    return render(request, 'home/dataset_report.html', {'metrics': metrics})
-
-def export_sentiment_csv(request):
-    tweets = request.session.get('last_analysis_tweets', [])
-    handle = request.session.get('last_analysis_handle', 'Analysis')
-    
-    response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = f'attachment; filename="sentiment_{handle}.csv"'
-    
-    writer = csv.writer(response)
-    writer.writerow(['Tweet text', 'Sentiment Polarity', 'Subjectivity'])
-    for tweet in tweets:
-        tb = TextBlob(tweet)
-        writer.writerow([tweet, tb.sentiment.polarity, tb.sentiment.subjectivity])
-    from sentiment_or_emotion.views import add_notification
-    add_notification(request, f"Sentiment report exported successfully as CSV for: {handle}")
-    return response
-
-def export_sentiment_excel(request):
-    tweets = request.session.get('last_analysis_tweets', [])
-    handle = request.session.get('last_analysis_handle', 'Analysis')
-    
-    response = HttpResponse(content_type='application/vnd.ms-excel')
-    response['Content-Disposition'] = f'attachment; filename="sentiment_{handle}.xls"'
-    
-    writer = csv.writer(response, delimiter='\t')
-    writer.writerow(['Tweet text', 'Sentiment Polarity', 'Subjectivity'])
-    for tweet in tweets:
-        tb = TextBlob(tweet)
-        writer.writerow([tweet, tb.sentiment.polarity, tb.sentiment.subjectivity])
+        # Cache summary to session for PDF report
+        request.session['last_dataset_analysis'] = {
+            'handle': handle,
+            'source_indicator': source_indicator,
+            'total_count': total_count,
+            'pos_count': pos_count, 'neu_count': neu_count, 'neg_count': neg_count,
+            'pos_pct': pos_pct, 'neu_pct': neu_pct, 'neg_pct': neg_pct,
+            'emotion_counts': emotion_counts,
+            'dominant_sentiment': dominant_sentiment,
+            'dominant_emotion': dominant_emotion,
+            'sample_records': records[:20]
+        }
         
-    from sentiment_or_emotion.views import add_notification
-    add_notification(request, f"Sentiment report exported successfully as Excel for: {handle}")
-    return response
+        context = {
+            'records': records,
+            'handle': handle,
+            'source_indicator': source_indicator,
+            'total_count': total_count,
+            'pos_count': pos_count,
+            'neu_count': neu_count,
+            'neg_count': neg_count,
+            'pos_pct': pos_pct,
+            'neu_pct': neu_pct,
+            'neg_pct': neg_pct,
+            'emotion_counts': emotion_counts,
+            'dominant_sentiment': dominant_sentiment,
+            'dominant_emotion': dominant_emotion
+        }
+        return render(request, 'home/sentiment_import_result.html', context)
+        
+    return render(request, 'home/sentiment_import.html')
 
 def export_sentiment_pdf(request):
-    tweets = request.session.get('last_analysis_tweets', [])
-    handle = request.session.get('last_analysis_handle', 'Analysis')
-    
-    response = HttpResponse(content_type='text/plain')
-    response['Content-Disposition'] = f'attachment; filename="sentiment_{handle}_report.txt"'
-    
-    response.write(f"SENTIMENT ANALYSIS REPORT FOR: {handle}\n")
-    response.write("="*60 + "\n\n")
-    
-    for i, tweet in enumerate(tweets, 1):
-        tb = TextBlob(tweet)
-        pol = tb.sentiment.polarity
-        lbl = "Positive" if pol > 0 else ("Negative" if pol < 0 else "Neutral")
-        response.write(f"[{i}] Tweet: {tweet}\n")
-        response.write(f"    Polarity: {pol} | Sentiment: {lbl} | Subjectivity: {tb.sentiment.subjectivity}\n\n")
+    """Generate print-optimized PDF report for the analyzed dataset."""
+    data = request.session.get('last_dataset_analysis')
+    if not data:
+        return redirect('/sentiment/import/')
         
-    from sentiment_or_emotion.views import add_notification
-    add_notification(request, f"Sentiment report exported successfully as PDF for: {handle}")
-    return response
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Sentiment & Emotion Analysis Report - {data['handle']}</title>
+        <style>
+            body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; padding: 40px; color: #1e293b; line-height: 1.5; }}
+            h1 {{ color: #2563eb; margin-bottom: 5px; }}
+            .header-info {{ color: #64748b; font-size: 14px; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; }}
+            .grid {{ display: flex; gap: 20px; margin-bottom: 25px; }}
+            .card {{ flex: 1; border: 1px solid #cbd5e1; border-radius: 8px; padding: 15px; background: #f8fafc; text-align: center; }}
+            .card-title {{ font-size: 13px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 5px; }}
+            .card-val {{ font-size: 24px; font-weight: bold; color: #0f172a; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 15px; }}
+            th, td {{ border: 1px solid #cbd5e1; padding: 10px 12px; text-align: left; font-size: 13px; }}
+            th {{ background-color: #f1f5f9; font-weight: 600; color: #334155; }}
+            .badge {{ display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: bold; }}
+            .badge-pos {{ background: #dcfce7; color: #15803d; }}
+            .badge-neu {{ background: #f1f5f9; color: #475569; }}
+            .badge-neg {{ background: #fee2e2; color: #b91c1c; }}
+        </style>
+    </head>
+    <body>
+        <h1>Text Sentiment and Emotion Analysis Report</h1>
+        <div class="header-info">
+            <strong>Source:</strong> {data['source_indicator']} | <strong>Query / File:</strong> {data['handle']} | <strong>Total Samples:</strong> {data['total_count']}
+        </div>
+        
+        <h3>1. Sentiment Summary</h3>
+        <div class="grid">
+            <div class="card">
+                <div class="card-title">Positive Sentiment</div>
+                <div class="card-val" style="color: #16a34a;">{data['pos_pct']}% ({data['pos_count']})</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Neutral Sentiment</div>
+                <div class="card-val" style="color: #64748b;">{data['neu_pct']}% ({data['neu_count']})</div>
+            </div>
+            <div class="card">
+                <div class="card-title">Negative Sentiment</div>
+                <div class="card-val" style="color: #dc2626;">{data['neg_pct']}% ({data['neg_count']})</div>
+            </div>
+        </div>
+        
+        <h3>2. Emotion Breakdown</h3>
+        <table style="width: 50%; margin-bottom: 25px;">
+            <tr><th>Emotion</th><th>Count</th></tr>
+            <tr><td>Happiness</td><td>{data['emotion_counts'].get('Happiness', 0)}</td></tr>
+            <tr><td>Love</td><td>{data['emotion_counts'].get('Love', 0)}</td></tr>
+            <tr><td>Worry</td><td>{data['emotion_counts'].get('Worry', 0)}</td></tr>
+            <tr><td>Sadness</td><td>{data['emotion_counts'].get('Sadness', 0)}</td></tr>
+            <tr><td>Hate</td><td>{data['emotion_counts'].get('Hate', 0)}</td></tr>
+        </table>
+
+        <h3>3. Sample Records Analyzed</h3>
+        <table>
+            <tr><th style="width: 50px;">#</th><th>Text Content</th><th style="width: 100px;">Sentiment</th><th style="width: 100px;">Emotion</th></tr>
+    """
+    for rec in data.get('sample_records', []):
+        badge_cls = 'badge-pos' if rec['sentiment'] == 'Positive' else ('badge-neg' if rec['sentiment'] == 'Negative' else 'badge-neu')
+        html += f"""
+            <tr>
+                <td>{rec['id']}</td>
+                <td>{rec['text']}</td>
+                <td><span class="badge {badge_cls}">{rec['sentiment']}</span></td>
+                <td><strong>{rec['emotion']}</strong></td>
+            </tr>
+        """
+        
+    html += """
+        </table>
+        <script>
+            window.onload = function() { window.print(); }
+        </script>
+    </body>
+    </html>
+    """
+    return HttpResponse(html)
 
 import re
 from django.http import JsonResponse
@@ -415,33 +496,37 @@ def playground_analyze_api(request):
     if request.method == 'POST':
         text = request.POST.get('text', '').strip()
         if not text:
-            return JsonResponse({'error': 'Empty input text'}, status=400)
+            return JsonResponse({'error': 'Please enter text to analyze.'}, status=400)
+            
+        # 1. Linguistic Natural Language Validation
+        is_valid, val_error = validate_natural_language_input(text)
+        if not is_valid:
+            return JsonResponse({'error': val_error}, status=400)
             
         steps = {'original': text}
         
-        # 1. Lowercase
+        # 1. Lowercase Conversion
         steps['lowercase'] = text.lower()
         
-        # 2. URL Removal
-        steps['no_urls'] = re.sub(r'http\S+|www\S+|https\S+', '', steps['lowercase'])
+        # 2. URL & Mention Removal
+        clean_urls = re.sub(r'http\S+|www\S+|https\S+', '', steps['lowercase'])
+        steps['no_urls_mentions'] = re.sub(r'@\w+', '', clean_urls).strip()
         
-        # 3. Mention Removal
-        steps['no_mentions'] = re.sub(r'@\w+', '', steps['no_urls'])
-        
-        # 4. Hashtag Processing
-        hashtags = re.findall(r'#\w+', steps['no_mentions'])
-        steps['hashtag_processed'] = re.sub(r'#(\w+)', r'\1', steps['no_mentions'])
-        
-        # 5. Emoji Processing
-        emojis = re.findall(r'[^\w\s,.]', steps['hashtag_processed'])
-        steps['emoji_processed'] = steps['hashtag_processed']
+        # 3. Emoji Processing
+        emojis = re.findall(r'[^\w\s,.]', steps['no_urls_mentions'])
+        emoji_proc = steps['no_urls_mentions']
         for em in set(emojis):
-            steps['emoji_processed'] = steps['emoji_processed'].replace(em, f" [{em}] ")
-            
-        # 6. Punctuation Removal
-        steps['no_punctuation'] = re.sub(r'[^\w\s]', '', steps['emoji_processed'])
+            emoji_proc = emoji_proc.replace(em, f" [{em}] ")
+        steps['emoji_processed'] = emoji_proc
         
-        # 7. Stopword Removal
+        # 4. Special Characters / Punctuation Removal
+        steps['no_punctuation'] = re.sub(r'[^\w\s]', '', steps['emoji_processed']).strip()
+        
+        # 5. Tokenization
+        raw_tokens = steps['no_punctuation'].split()
+        steps['tokenization'] = str(raw_tokens)
+        
+        # 6. Stopword Removal
         stopwords = ['i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', 'your', 'yours', 
                      'he', 'him', 'his', 'himself', 'she', 'her', 'hers', 'herself', 'it', 'its', 'itself', 
                      'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this', 
@@ -454,16 +539,12 @@ def playground_analyze_api(request):
                      'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not', 'only', 'own', 
                      'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just', 'don', 'should', 'now']
         
-        words_temp = steps['no_punctuation'].split()
-        cleaned_words = [w for w in words_temp if w not in stopwords]
-        stopwords_removed_count = len(words_temp) - len(cleaned_words)
+        cleaned_words = [w for w in raw_tokens if w.lower() not in stopwords]
+        stopwords_removed_count = len(raw_tokens) - len(cleaned_words)
         steps['stopword_removed'] = " ".join(cleaned_words)
+        tokens = cleaned_words if cleaned_words else raw_tokens
         
-        # 8. Tokenization
-        tokens = steps['stopword_removed'].split()
-        steps['tokenization'] = str(tokens)
-        
-        # 9 & 10. Stemming & Lemmatization
+        # 7. Stemming
         def stem(w):
             if w.endswith('ing'): return w[:-3]
             if w.endswith('ed'): return w[:-2]
@@ -471,50 +552,26 @@ def playground_analyze_api(request):
             if w.endswith('s') and not w.endswith('ss'): return w[:-1]
             return w
             
-        lemmas = {'running': 'run', 'went': 'go', 'better': 'good', 'happiest': 'happy'}
+        lemmas = {'running': 'run', 'went': 'go', 'better': 'good', 'happiest': 'happy', 'loving': 'love', 'loved': 'love'}
         stems = [stem(w) for w in tokens]
         lems = [lemmas.get(w, w) for w in tokens]
         steps['stemming'] = " ".join(stems)
+        
+        # 8. Lemmatization
         steps['lemmatization'] = " ".join(lems)
         
-        # 11. POS Tagging
-        noun_markers = ['day', 'night', 'work', 'time', 'home', 'life', 'school', 'game', 'today', 'friend']
-        verb_markers = ['love', 'hate', 'like', 'want', 'think', 'know', 'see', 'feel', 'make', 'get']
-        adj_markers = ['good', 'bad', 'happy', 'sad', 'great', 'awesome', 'nice', 'sweet', 'cool']
-        
-        pos_tags = []
-        for w in tokens:
-            if w in noun_markers: pos_tags.append((w, 'Noun'))
-            elif w in verb_markers: pos_tags.append((w, 'Verb'))
-            elif w in adj_markers: pos_tags.append((w, 'Adjective'))
-            else: pos_tags.append((w, 'Noun' if len(w) > 4 else 'Adverb'))
-        steps['pos_tagging'] = str(pos_tags)
-        
-        # 12. NER
-        ner_entities = []
-        for w in text.split():
-            w_clean = re.sub(r'[^\w]', '', w)
-            if w_clean and w_clean[0].isupper() and w_clean.lower() not in stopwords:
-                ner_entities.append((w_clean, 'Entity/Name'))
-        steps['ner'] = str(ner_entities)
-        
-        # 13. Final Cleaned text
+        # 9. Final Cleaned text
         steps['final_clean'] = steps['lemmatization']
         
         # Sentiment prediction
         sentiment, confidence = model_service.analyze_sentiment(text)
         
-        # Emotion detected
-        text_lower = text.lower()
-        if any(w in text_lower for w in ['love', 'adore', 'heart']): emotion = 'Love'
-        elif any(w in text_lower for w in ['happy', 'glad', 'joy', 'awesome', 'great']): emotion = 'Happiness'
-        elif any(w in text_lower for w in ['sad', 'cry', 'gloomy', 'sorry']): emotion = 'Sadness'
-        elif any(w in text_lower for w in ['hate', 'angry', 'mad', 'scandalous', 'ugh']): emotion = 'Hate'
-        else: emotion = 'Worry'
+        # Emotion detected with threshold
+        emotion, emotion_confidence = predict_emotion_with_threshold(text, sentiment)
         
         # Highlights
-        pos_words = ['love', 'happy', 'fun', 'relief', 'joy', 'good', 'great', 'awesome', 'nice']
-        neg_words = ['sad', 'worry', 'hate', 'bad', 'anger', 'hurt', 'fail', 'sorry', 'wrong']
+        pos_words = ['love', 'happy', 'fun', 'relief', 'joy', 'good', 'great', 'awesome', 'nice', 'excellent', 'wonderful']
+        neg_words = ['sad', 'worry', 'hate', 'bad', 'anger', 'hurt', 'fail', 'sorry', 'wrong', 'terrible', 'awful']
         
         highlighted_text = ""
         for w in text.split():

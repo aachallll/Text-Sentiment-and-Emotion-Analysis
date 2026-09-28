@@ -147,3 +147,168 @@ def generate_historical_trends(tweets):
             'score': round(min(max(daily_score, -1.0), 1.0), 2)
         })
     return trends
+
+# Cached vocabulary set for lightweight generic input validation
+_ENGLISH_VOCAB = None
+
+def get_english_vocabulary():
+    global _ENGLISH_VOCAB
+    if _ENGLISH_VOCAB is None:
+        try:
+            import nltk
+            from nltk.corpus import words, stopwords
+            from nltk.sentiment.vader import SentimentIntensityAnalyzer
+            
+            english_words = set(w.lower() for w in words.words())
+            english_stopwords = set(stopwords.words('english'))
+            vader = SentimentIntensityAnalyzer()
+            vader_words = set(vader.lexicon.keys())
+            
+            vocab = english_words.union(english_stopwords).union(vader_words)
+        except Exception:
+            vocab = set(STOPWORDS)
+            
+        # Common social media, slang, colloquial, domain words
+        vocab.update([
+            'app', 'phone', 'okay', 'ok', 'idk', 'tbh', 'omg', 'lol', 'btw', 'thx', 'plz', 
+            'cant', 'dont', 'im', 'wont', 'tweet', 'twitter', 'fb', 'insta', 'post', 'dm', 
+            'pic', 'pics', 'exam', 'exams', 'disappointed', 'service', 'movie', 'product',
+            'super', 'great', 'awesome', 'terrible', 'horrible', 'worst', 'best', 'good', 'bad'
+        ])
+        _ENGLISH_VOCAB = vocab
+    return _ENGLISH_VOCAB
+
+KEYBOARD_ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm']
+
+def validate_natural_language_input(text):
+    """
+    Generic input validation layer to determine if the input contains meaningful natural-language text.
+    Rejects empty, numeric-only, symbol-only, keyboard mash, and random consonant strings.
+    Returns: (is_valid: bool, error_message: str)
+    """
+    if not text or not str(text).strip():
+        return False, "Please enter some text."
+        
+    raw = str(text).strip()
+    
+    # 1. Must contain at least 2 alphabetic letters
+    letters = re.findall(r'[a-zA-Z]', raw)
+    if len(letters) < 2:
+        return False, "Please enter meaningful text or a valid sentence."
+        
+    # 2. Check ratio of alphanumeric characters (reject '@@@@@@', '!!!!!', '.........')
+    non_symbols = re.findall(r'[a-zA-Z0-9\s]', raw)
+    if len(non_symbols) / len(raw) < 0.3:
+        return False, "Please enter meaningful text or a valid sentence."
+        
+    # 3. Check for keyboard mash sequence (e.g. 'qwertyuiop', 'asdfghjkl')
+    clean_alpha = re.sub(r'[^a-z]', '', raw.lower())
+    for row in KEYBOARD_ROWS:
+        for i in range(len(row) - 5):
+            seq = row[i:i+6]
+            if seq in clean_alpha or seq[::-1] in clean_alpha:
+                return False, "Please enter meaningful text or a valid sentence."
+                
+    # 4. Extract word tokens
+    tokens = re.findall(r"[a-zA-Z']+", raw.lower())
+    if not tokens:
+        return False, "Please enter meaningful text or a valid sentence."
+        
+    vocab = get_english_vocabulary()
+    valid_count = 0
+    total_tokens = len(tokens)
+    
+    for t in tokens:
+        t_clean = t.strip("'")
+        if not t_clean:
+            continue
+            
+        # Check excessive consonant sequence (e.g. 5+ consonants in a row with no vowel)
+        if re.search(r'[bcdfghjklmnpqrstvwxyz]{5,}', t_clean):
+            continue
+            
+        # Check vowel presence for words of length >= 4
+        vowels = re.findall(r'[aeiouy]', t_clean)
+        if len(t_clean) >= 4 and not vowels:
+            continue
+            
+        # Check repetitive character spam (e.g. 'aaaaaa', 'xxxxxx')
+        if re.search(r'(.)\1{3,}', t_clean):
+            continue
+            
+        if t_clean in vocab:
+            valid_count += 1
+            
+    if total_tokens == 1:
+        if valid_count < 1:
+            return False, "Please enter meaningful text or a valid sentence."
+    else:
+        # For multiple words, at least 30% of words must be recognizable, and at least 1 word
+        if valid_count < 1 or (valid_count / total_tokens) < 0.3:
+            return False, "Please enter meaningful text or a valid sentence."
+            
+    return True, ""
+
+def predict_emotion_with_threshold(text, sentiment='Neutral'):
+    """
+    Predict fine-grained emotion (Happiness, Love, Worry, Sadness, Hate) with sensible confidence threshold.
+    Does NOT force 'Worry' on neutral/unemotional text.
+    Returns: (emotion_label: str, confidence_pct: int)
+    """
+    text_lower = text.lower()
+    
+    # 1. Lexical emotion indicators for high-precision matching
+    love_words = {'love', 'adore', 'beloved', 'cherish', 'sweetheart', 'heart', 'crush', 'loving'}
+    happy_words = {'happy', 'glad', 'joy', 'joyful', 'awesome', 'great', 'fantastic', 'delighted', 'pleased', 'excited', 'celebrate'}
+    sad_words = {'sad', 'depressed', 'gloomy', 'unhappy', 'crying', 'heartbroken', 'sorrow', 'mourn', 'miserable', 'tears', 'hurts'}
+    hate_words = {'hate', 'disgusted', 'detest', 'loathe', 'furious', 'scandalous', 'abhor', 'terrible', 'worst'}
+    worry_words = {'worry', 'worried', 'nervous', 'anxious', 'anxiety', 'fear', 'scared', 'panic', 'stress', 'stressed', 'afraid'}
+    
+    words_in_text = set(re.findall(r'\b[a-zA-Z]+\b', text_lower))
+    
+    if words_in_text.intersection(love_words):
+        return 'Love', 92
+    if words_in_text.intersection(happy_words):
+        return 'Happiness', 88
+    if words_in_text.intersection(hate_words):
+        return 'Hate', 85
+    if words_in_text.intersection(sad_words):
+        return 'Sadness', 85
+    if words_in_text.intersection(worry_words):
+        return 'Worry', 86
+        
+    # 2. Use trained Logistic Regression emotion model
+    try:
+        from emotion.emotion_analysis_code import emotion_analysis_code
+        analyse = emotion_analysis_code()
+        analyse.load_models()
+        
+        cleaned = ' '.join(analyse.cleaning(text))
+        test_vec = analyse._vectorizer.transform([cleaned])
+        
+        # If vector has matching features
+        if test_vec.nnz > 0:
+            probs = analyse._model.predict_proba(test_vec)[0]
+            classes = analyse._model.classes_
+            best_idx = probs.argmax()
+            best_class = classes[best_idx].capitalize()
+            best_prob = int(probs[best_idx] * 100)
+            
+            # If model probability is reasonably confident (>= 50%)
+            if best_prob >= 50:
+                return best_class, best_prob
+            # If sentiment is positive and best class is happiness/love
+            if sentiment == 'Positive' and best_class in ['Happiness', 'Love']:
+                return best_class, max(best_prob, 65)
+            # If sentiment is negative and best class is sadness/worry/hate
+            if sentiment == 'Negative' and best_class in ['Sadness', 'Worry', 'Hate'] and best_prob >= 40:
+                return best_class, best_prob
+    except Exception:
+        pass
+        
+    # 3. If neutral or low emotional cues, do not force an arbitrary emotion (Requirement 8)
+    if sentiment == 'Neutral':
+        return 'Neutral', 0
+        
+    return 'Emotion could not be determined confidently. Please provide a more descriptive sentence.', 0
+

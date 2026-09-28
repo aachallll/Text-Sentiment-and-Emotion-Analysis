@@ -253,7 +253,7 @@
     <div class="sidebar">
       <div class="logo-container">
         <i class="fa-solid fa-brain logo-icon"></i>
-        <span class="logo-text" style="font-size: 16px;">NLP Sentiment Analyzer</span>
+        <span class="logo-text" style="font-size: 15px; font-weight: 700; line-height: 1.2;">Text Sentiment &amp; Emotion Analysis</span>
       </div>
       
       <ul class="nav-menu">
@@ -263,23 +263,18 @@
           </a>
         </li>
         <li>
-          <a href="/sentiment" class="nav-item-link {% block active_sent %}{% endblock %}">
-            <i class="fa-solid fa-bolt"></i> Sentiment Analysis
+          <a href="/sentiment/type/" class="nav-item-link {% block active_sent %}{% endblock %}">
+            <i class="fa-solid fa-keyboard"></i> Text Analysis
           </a>
         </li>
         <li>
-          <a href="/sentiment/dataset-analysis/" class="nav-item-link {% block active_dataset %}{% endblock %}">
-            <i class="fa-solid fa-database"></i> Model Evaluation
+          <a href="/sentiment/import/" class="nav-item-link {% block active_dataset %}{% endblock %}">
+            <i class="fa-solid fa-file-csv"></i> CSV Analysis
           </a>
         </li>
         <li>
-          <a href="/emotion" class="nav-item-link {% block active_emotion %}{% endblock %}">
-            <i class="fa-solid fa-face-smile"></i> Emotion Analysis
-          </a>
-        </li>
-        <li>
-          <a href="/sentiment/chatbot/" class="nav-item-link {% block active_bot %}{% endblock %}">
-            <i class="fa-solid fa-robot"></i> AI Assistant
+          <a href="/sentiment/playground/" class="nav-item-link {% block active_playground %}{% endblock %}">
+            <i class="fa-solid fa-gears"></i> NLP Preprocessing
           </a>
         </li>
         <li>
@@ -287,67 +282,25 @@
             <i class="fa-solid fa-gamepad"></i> Sentiment Quiz
           </a>
         </li>
-        <li>
-          <a href="/sentiment/playground/" class="nav-item-link {% block active_playground %}{% endblock %}">
-            <i class="fa-solid fa-gears"></i> NLP Playground
-          </a>
-        </li>
       </ul>
-
-      <div class="ai-assistant-card">
-        <i class="fa-solid fa-robot" style="font-size: 32px; color: var(--primary-color);"></i>
-        <h6 class="mt-2 mb-1" style="font-weight: 600;">AI Assistant</h6>
-        <p class="text-muted small mb-0">Ask me anything about text sentiments!</p>
-        <button class="ai-assistant-btn" onclick="location.href='/sentiment/chatbot/'">Chat Now <i class="fa-solid fa-arrow-right"></i></button>
-      </div>
     </div>
 
     <!-- Main Content wrapper -->
     <div class="main-content">
       <!-- Top header bar -->
       <div class="top-header">
-        <div class="search-bar-container">
-          <i class="fa-solid fa-magnifying-glass text-muted"></i>
-          <input type="text" placeholder="Search keywords or datasets...">
+        <div class="d-flex align-items-center">
+          <span style="font-weight: 600; color: var(--text-secondary); font-size: 14px;">
+            <i class="fa-solid fa-graduation-cap mr-2" style="color: var(--primary-color);"></i>
+            Academic NLP Mini Project
+          </span>
         </div>
         
         <div class="header-right">
           <!-- Dark Mode Toggle Button -->
-          <button class="header-btn" onclick="toggleDarkMode()">
+          <button class="header-btn" onclick="toggleDarkMode()" title="Toggle Dark/Light Mode">
             <i id="themeIcon" class="fa-solid fa-moon"></i>
           </button>
-          
-          <!-- Notifications dropdown -->
-          <div class="dropdown mr-3">
-            <button class="header-btn dropdown-toggle" type="button" id="notifDropdown" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="padding: 0; outline: none; box-shadow: none;">
-              <i class="fa-solid fa-bell"></i>
-              <span class="badge-dot" id="notifBadge" style="display: none;"></span>
-            </button>
-            <div class="dropdown-menu dropdown-menu-right p-0" aria-labelledby="notifDropdown" style="width: 320px; border-radius: 12px; background: var(--sidebar-bg); border: 1px solid var(--border-color); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 400px; overflow-y: auto;">
-              <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
-                <h6 class="mb-0" style="font-weight: 600; color: var(--text-primary);">Notifications</h6>
-                <a href="#" class="small" onclick="markAllRead(event)" style="color: var(--primary-color); font-weight: 500;">Mark all read</a>
-              </div>
-              <div id="notifList" class="p-2">
-                <!-- Notifications list injected via JS -->
-              </div>
-            </div>
-          </div>
-          
-          {% if user.is_authenticated %}
-            <div class="user-profile">
-              <i class="fa-solid fa-circle-user user-avatar-placeholder" style="color: var(--primary-color);"></i>
-              <span class="user-name">{{ user.username }}</span>
-            </div>
-            <a href="/logout" class="btn btn-sm btn-outline-danger ml-3" style="border-radius: 8px;">Logout</a>
-          {% else %}
-            <div class="user-profile">
-              <i class="fa-solid fa-circle-user user-avatar-placeholder"></i>
-              <span class="user-name">Guest User</span>
-            </div>
-            <a href="/login" class="btn btn-sm btn-outline-primary px-3 ml-3" style="border-radius: 8px;">Login</a>
-            <a href="/signup" class="btn btn-sm btn-primary ml-2 px-3" style="border-radius: 8px; color: white !important;">Sign Up</a>
-          {% endif %}
         </div>
       </div>
 
@@ -379,99 +332,6 @@
           icon.classList.replace('fa-sun', 'fa-moon');
         }
       }
-
-      // Notifications management scripts
-      function fetchNotifications() {
-        $.ajax({
-          url: '/api/notifications/',
-          type: 'GET',
-          success: function(data) {
-            const list = $('#notifList');
-            list.empty();
-            if (!data.notifications || data.notifications.length === 0) {
-              list.append('<div class="p-3 text-center text-muted small">No notifications</div>');
-              $('#notifBadge').hide();
-            } else {
-              if (data.unread_count > 0) {
-                $('#notifBadge').show();
-              } else {
-                $('#notifBadge').hide();
-              }
-              
-              data.notifications.forEach(n => {
-                const readStyle = n.is_read ? 'opacity: 0.7;' : 'background: var(--accent-hover); font-weight: 600;';
-                const item = $(`
-                  <div class="p-2 mb-1 rounded d-flex justify-content-between align-items-center" style="${readStyle} border-bottom: 1px solid var(--border-color); transition: all 0.2s;">
-                    <div style="flex-grow: 1; font-size: 11px; color: var(--text-primary); cursor: pointer;" onclick="markRead(${n.id})">
-                      <div>${n.message}</div>
-                      <div class="text-muted small mt-1" style="font-size: 8px;">${n.timestamp}</div>
-                    </div>
-                    <button class="btn btn-sm text-danger" onclick="deleteNotif(${n.id}, event)" style="background: transparent; border: none; padding: 2px 6px;">
-                      <i class="fa-solid fa-trash" style="font-size: 10px;"></i>
-                    </button>
-                  </div>
-                `);
-                list.append(item);
-              });
-            }
-          }
-        });
-      }
-
-      function markRead(id) {
-        $.ajax({
-          url: `/api/notifications/mark-read/${id}/`,
-          type: 'POST',
-          headers: {'X-CSRFToken': '{{ csrf_token }}'},
-          success: function() {
-            fetchNotifications();
-          }
-        });
-      }
-
-      function markAllRead(e) {
-        e.preventDefault();
-        $.ajax({
-          url: '/api/notifications/mark-all-read/',
-          type: 'POST',
-          headers: {'X-CSRFToken': '{{ csrf_token }}'},
-          success: function() {
-            fetchNotifications();
-          }
-        });
-      }
-
-      function deleteNotif(id, e) {
-        e.stopPropagation();
-        $.ajax({
-          url: `/api/notifications/delete/${id}/`,
-          type: 'POST',
-          headers: {'X-CSRFToken': '{{ csrf_token }}'},
-          success: function() {
-            fetchNotifications();
-          }
-        });
-      }
-
-      setInterval(fetchNotifications, 8000);
-      $(document).ready(function() {
-        fetchNotifications();
-        
-        // Manual toggle to avoid popper.js errors
-        $('#notifDropdown').click(function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          $(this).next('.dropdown-menu').toggle();
-        });
-        
-        $(document).click(function() {
-          $('.dropdown-menu').hide();
-        });
-        
-        $('.dropdown-menu').click(function(e) {
-          e.stopPropagation();
-        });
-      });
     </script>
     {% block extra_js %}{% endblock %}
   </body>

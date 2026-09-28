@@ -1,203 +1,139 @@
-# Social Media Sentiment & Emotion Analysis System Using NLP and Machine Learning
+# Text Sentiment and Emotion Analysis Using NLP and Machine Learning
 
-A comprehensive, full-stack Natural Language Processing (NLP) and Machine Learning web application designed to analyze, classify, and visualize sentiments and fine-grained emotions from social media text and datasets.
+A clean, reliable academic Natural Language Processing (NLP) and Machine Learning mini project designed to analyze, classify, and visualize text sentiments and multi-class emotions from sentences and dataset files.
 
 ---
 
 ## 📌 Project Overview
 
-Understanding public opinion on social media platforms is crucial for brand monitoring, customer feedback, and public perception analysis. This system processes raw social media comments and structured datasets through an advanced NLP pipeline and machine learning models, offering real-time polarity classification, emotional breakdown, interactive visualizations, and automated report exports.
+This project provides an end-to-end NLP system for evaluating textual sentiment polarities (**Positive**, **Neutral**, **Negative**) and fine-grained emotional tones (**Happiness**, **Love**, **Worry**, **Sadness**, **Hate**).
 
-The application operates completely offline without external API rate limits or credential requirements.
+Built with **Django**, **Scikit-learn**, **NLTK**, and **TextBlob**, the system features robust input validation to prevent meaningless gibberish from being misclassified, an educational 10-stage text preprocessing pipeline, CSV dataset batch analysis with PDF export, and an interactive sentiment quiz.
 
 ---
 
-## 🚀 Key Features
+## 🚀 Key Modules
 
 ### 1. ✍️ Manual Text Analysis
-* Enter any custom social-media comment, sentence, or tweet.
-* Real-time prediction of **Sentiment** (`Positive`, `Neutral`, `Negative`) with a **Confidence Score (%)**.
-* Detection of fine-grained **Emotions** (`Happiness`, `Love`, `Worry`, `Sadness`, `Hate`).
+* Enter or paste any English sentence or social media text.
+* Classifies **Sentiment** (`Positive`, `Neutral`, `Negative`) with confidence score.
+* Identifies **Emotion** (`Happiness`, `Love`, `Worry`, `Sadness`, `Hate`) with confidence thresholding (avoids forcing "Worry" on neutral text).
+* **Linguistic Validation Layer**: Rejects random gibberish strings (e.g., `vdyqwgfubecjbhjcvyew`, `asdfghjkl`, repetitive characters, or symbols) and displays a clear advisory alert: *"Please enter meaningful text or a valid sentence."*
 
-### 2. 📂 CSV Dataset Upload & Batch Analysis
-* Upload any custom `.csv` dataset containing social media posts or comments.
-* **Auto-Column Detection**: Automatically identifies columns like `text`, `content`, `tweet`, `comment`, etc.
-* Processes records in batches and generates dynamic distribution charts and metrics.
-* Supports searching the built-in offline dataset (`text_emotion.csv`).
+### 2. 📂 CSV Dataset Analysis
+* Upload any `.csv` file containing text comments or reviews.
+* Automatically detects the appropriate text column (`text`, `content`, `tweet`, `comment`, `sentence`, `message`).
+* Batch-evaluates sentiments and emotions.
+* Displays interactive distribution donut and bar charts.
+* Provides a one-click **Export PDF Report** for academic documentation.
 
-### 3. ⚙️ 14-Stage NLP Preprocessing Playground
-* An educational, visual workspace breaking down text preprocessing step-by-step:
-  1. Original Text
-  2. Lowercase Conversion
-  3. URL Removal
-  4. Mention (`@user`) Removal
-  5. Hashtag (`#tag`) Processing
-  6. Emoji Processing & Mapping
-  7. Punctuation Removal
-  8. Stopword Filtering
-  9. Tokenization
-  10. Stemming (Porter Stemmer)
-  11. Lemmatization
-  12. Parts of Speech (POS) Tagging
-  13. Named Entity Recognition (NER)
-  14. Final Cleaned Text Output
-* Generates keyword frequency charts and readability metrics.
+### 3. ⚙️ NLP Preprocessing Pipeline (10 Educational Stages)
+* Visualizes the step-by-step transformation of raw text into structured tokens:
+  1. **Raw Text** (Input)
+  2. **Lowercase Conversion**
+  3. **URL & Mention Removal**
+  4. **Punctuation / Special Characters Removal**
+  5. **Emoji Processing**
+  6. **Tokenization**
+  7. **Stopword Removal**
+  8. **Stemming**
+  9. **Lemmatization**
+  10. **Final Cleaned Text Output**
+* Includes word count, character count, readability score, and token frequency bar chart.
 
 ### 4. 🎮 Interactive Sentiment Quiz
-* An interactive game with **Easy, Medium, and Hard** difficulties.
-* Evaluates tweets sampled from the Kaggle dataset.
-* Provides instant feedback comparing user answers against dataset labels and model predictions.
-* Includes score calculation and a full answer review card.
+* Tests human sentiment discernment against trained model predictions.
+* 10 randomized real-world questions with difficulty selection.
+* Provides immediate feedback and contextual explanations for each classification.
 
-### 5. 🤖 Context-Aware AI Chatbot Assistant
-* Chatbot assistant answering questions grounded in the analyzed text and dataset context.
-* Summarizes sentiments, explains dominant emotions, and retrieves representative positive/negative posts.
-
-### 6. 📊 Model Evaluation & Benchmarks
-* In-depth performance evaluation of trained ML models (Logistic Regression / Naive Bayes / VADER).
-* Displays **Accuracy**, **Precision**, **Recall**, **F1-Score**, and **Confusion Matrix**.
-
-### 7. 📄 Dual-Format Report Exports
-* **Export PDF**: Generates a print-optimized document view that automatically launches the browser's PDF print dialogue.
-* **Export Word Document**: Generates Microsoft Word-compatible (`.doc`) reports.
-
-### 8. 🔔 History & Notification Center
-* Tracks recent search queries with one-click clear options.
-* Live dropdown notifications for analysis completions and export actions.
-* Light/Dark mode UI theme switch with responsive design.
+### 5. 🌓 Clean Academic UI & Dark/Light Mode
+* Clean, professional dashboard with key performance indicators.
+* Dark / Light mode toggle preserved in local storage.
+* Fully responsive layout built with Bootstrap.
 
 ---
 
 ## 🛠️ Technology Stack
 
-| Layer | Technologies |
+| Component | Technology |
 |---|---|
-| **Backend** | Python 3.10+, Django 5/6 |
-| **NLP & ML** | Scikit-learn, NLTK, VADER Lexicon, TextBlob, Pandas, NumPy |
-| **Frontend** | HTML5, CSS3, JavaScript (ES6+), Bootstrap, jQuery, Chart.js, FontAwesome |
+| **Web Framework** | Python 3.10+, Django 6.0 |
+| **NLP & Machine Learning** | Scikit-learn, NLTK, VADER Lexicon, TextBlob, Pandas, NumPy |
+| **Frontend** | HTML5, CSS3, JavaScript (ES6+), Bootstrap, Chart.js, FontAwesome |
 | **Database** | SQLite3 |
 
 ---
 
-## 📁 Project Directory Structure
+## 📁 Project Structure
 
 ```text
 Twitter-Sentiment-Emotion-Analysis-master/
 ├── README.md
-├── sample text.txt
 └── sentiment_emotion_analysis/
     ├── manage.py
-    ├── db.sqlite3
-    ├── text_emotion.csv              # Preloaded Kaggle emotion dataset
-    ├── retrain_emotion_model.py      # Script for model training
-    ├── emotion/                      # Emotion analysis application module
+    ├── text_emotion.csv              # Kaggle Emotion Dataset
+    ├── sentiment/                    # Core Sentiment & Preprocessing Module
     │   ├── views.py
     │   ├── urls.py
-    │   └── templates/home/
-    ├── sentiment/                    # Sentiment & Playground application module
-    │   ├── views.py
-    │   ├── urls.py
-    │   ├── dataset_service.py
+    │   ├── nlp_utils.py              # Validation layer & thresholded inference
     │   ├── sentiment_model_service.py
-    │   ├── nlp_utils.py
+    │   ├── dataset_service.py
     │   └── templates/home/
-    │       ├── playground.html       # NLP Playground
-    │       ├── quiz.html             # Interactive Quiz
-    │       └── dataset_report.html   # Model Metrics
-    └── sentiment_or_emotion/         # Core project settings and dashboard
-        ├── views.py
-        ├── models.py                 # SearchHistory & Notification models
-        ├── urls.py
-        └── templates/home/
-            ├── base.html             # Common layout & navbar
-            └── home.html             # Dashboard homepage
+    │       ├── sentiment_type.html
+    │       ├── sentiment_import.html
+    │       ├── sentiment_import_result.html
+    │       ├── playground.html
+    │       └── quiz.html
+    ├── emotion/                      # Emotion routes (unified with sentiment)
+    │   ├── views.py
+    │   └── emotion_analysis_code.py
+    ├── sentiment_or_emotion/         # Main app, base templates & auth views
+    │   ├── views.py
+    │   ├── urls.py
+    │   └── templates/home/
+    │       ├── base.html
+    │       └── home.html
+    └── sentiment_emotion_analysis/   # Project settings & URL routing
+        ├── settings.py
+        └── urls.py
 ```
 
 ---
 
-## 💻 Installation & Setup Guide
+## 💻 How to Run in VS Code
 
-### 1. Prerequisites
-Ensure you have Python installed (Python 3.9 to 3.12 recommended):
+### Step 1: Open the Project
+Open the project folder in VS Code:
 ```bash
-python --version
+File -> Open Folder -> Twitter-Sentiment-Emotion-Analysis-master
 ```
 
-### 2. Clone the Repository
-```bash
-git clone https://github.com/aachallll/Twitter-Sentiment-emotion-Analysis.git
-cd Twitter-Sentiment-Emotion-Analysis-master
-```
+### Step 2: Open Terminal in VS Code
+Press ``Ctrl + ` `` (or `Terminal -> New Terminal`).
 
-### 3. (Optional) Create & Activate a Virtual Environment
-```bash
-# Windows (PowerShell)
-python -m venv venv
-.\venv\Scripts\activate
-
-# Linux / macOS
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 4. Install Dependencies
-```bash
-pip install django scikit-learn nltk textblob pandas numpy
-```
-
-*(Optional) Download required NLTK tokenizers if prompted:*
-```python
-python -c "import nltk; nltk.download('vader_lexicon'); nltk.download('stopwords'); nltk.download('punkt')"
-```
-
-### 5. Apply Database Migrations
-Navigate into the `sentiment_emotion_analysis` folder containing `manage.py`:
+### Step 3: Navigate to the Django Directory
 ```bash
 cd sentiment_emotion_analysis
-python manage.py makemigrations
-python manage.py migrate
 ```
 
-### 6. Create Superuser (Admin Access)
+### Step 4: Install Dependencies
 ```bash
-python manage.py createsuperuser
+pip install -r requirements.txt
 ```
-*(Default development credentials if configured: `admin` / `admin123`)*
+*(Or install core packages: `pip install django textblob nltk scikit-learn pandas`)*
 
----
+Download required NLTK corpora (if prompted):
+```bash
+python -c "import nltk; nltk.download('vader_lexicon'); nltk.download('stopwords'); nltk.download('words')"
+```
 
-## ▶️ Running the Application
-
-From the `sentiment_emotion_analysis` folder, start the local development server:
-
+### Step 5: Start the Development Server
 ```bash
 python manage.py runserver
 ```
 
-Open your browser and navigate to:
-👉 **`http://localhost:8000/`** (or `http://127.0.0.1:8000/`)
-
----
-
-## 📖 How to Use the System
-
-1. **Dashboard (`/`)**: View overview metrics, recent search history, and feature navigation cards.
-2. **Manual Text Analysis (`/sentiment/type`)**: Type or paste any social media post and click *Analyze* to view polarity, confidence, and detected emotion.
-3. **CSV Dataset Analysis (`/sentiment/import`)**:
-   * Option 1: Search by topic/keyword in the preloaded Kaggle dataset.
-   * Option 2: Upload your own `.csv` file to perform batch classification.
-4. **NLP Playground (`/sentiment/playground/`)**: Enter text or load a sample tweet to visualize all 14 preprocessing stages and word frequencies.
-5. **Sentiment Quiz (`/sentiment/quiz/`)**: Test your sentiment labeling skills across Easy, Medium, and Hard tweets.
-6. **AI Assistant (`/sentiment/chatbot/`)**: Chat with the contextual AI agent regarding your active analysis.
-7. **Model Evaluation (`/sentiment/dataset-analysis/`)**: Inspect Accuracy, F1-Scores, Confusion Matrices, and baseline performance comparisons.
-
----
-
-## 🔒 Security & Offline Design
-* **Zero API Dependency**: Does not require Twitter/X API tokens, keys, or internet connectivity to analyze text.
-* **CSRF Protection**: All form submissions and AJAX requests adhere to Django's built-in CSRF token security.
-
----
-
-## 📄 License
-This project is open-source and developed for academic and educational purposes.
+### Step 6: Open the Application
+Open your web browser and visit:
+```
+http://127.0.0.1:8000/
+```

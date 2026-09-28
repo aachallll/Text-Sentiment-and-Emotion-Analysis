@@ -25,28 +25,14 @@ twitter_service = TwitterService()
 model_service = SentimentModelService()
 
 def emotion_analysis(request):
-    return render(request, 'home/emotion.html')
+    return redirect('/sentiment/type/')
 
 def emotion_analysis_type(request):
-    if request.method == 'POST':
-        form = Emotion_Typed_Tweet_analyse_form(request.POST)
-        analyse = emotion_analysis_code()
-        if form.is_valid():
-            tweet = form.cleaned_data['emotion_typed_tweet']
-            emotion = analyse.predict_emotion(tweet)
-            confidence = analyze_confidence(tweet)
-            
-            args = {
-                'tweet': tweet, 
-                'emotion': emotion,
-                'confidence': confidence
-            }
-            return render(request, 'home/emotion_type_result.html', args)
-    else:
-        form = Emotion_Typed_Tweet_analyse_form()
-        return render(request, 'home/emotion_type.html')
+    return redirect('/sentiment/type/')
 
 def emotion_analysis_import(request):
+    return redirect('/sentiment/import/')
+
     error_message = None
     if request.method == 'POST':
         csv_file = request.FILES.get('csv_file')

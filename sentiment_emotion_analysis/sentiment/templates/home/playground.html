@@ -1,7 +1,7 @@
 {% extends 'home/base.html' %}
 {% load static %}
 
-{% block title %}NLP Playground - Tweet Analyzer{% endblock %}
+{% block title %}NLP Preprocessing Playground - Text Sentiment & Emotion Analysis{% endblock %}
 {% block active_playground %}active{% endblock %}
 
 {% block extra_css %}
@@ -10,9 +10,17 @@
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    padding: 18px;
+    padding: 16px;
     margin-bottom: 15px;
     border-left: 3px solid var(--primary-color);
+    height: calc(100% - 15px);
+  }
+  .step-number {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
   }
   .step-title {
     font-size: 13px;
@@ -24,7 +32,7 @@
   .step-value {
     font-size: 14px;
     color: var(--text-primary);
-    word-break: break-all;
+    word-break: break-word;
   }
   .kpi-value {
     font-size: 24px;
@@ -35,14 +43,14 @@
 {% endblock %}
 
 {% block content %}
-<div class="row align-items-center mb-5">
+<div class="row align-items-center mb-4">
   <div class="col-md-7">
     <h1 style="font-weight: 800; color: var(--text-primary);">NLP Preprocessing Playground</h1>
-    <p class="text-muted">Explore step-by-step natural language pipelines and text statistics.</p>
+    <p class="text-muted">Explore step-by-step natural language processing pipeline and text statistics.</p>
   </div>
   <div class="col-md-5 text-md-right">
     <button class="btn btn-outline-primary mr-2" style="border-radius: 10px; font-weight: 600;" onclick="loadSampleTweet()">
-      <i class="fa-solid fa-shuffle mr-1"></i> Get Sample Tweet
+      <i class="fa-solid fa-shuffle mr-1"></i> Sample Text
     </button>
     <button class="btn btn-outline-secondary" style="border-radius: 10px; font-weight: 600;" onclick="resetPlayground()">
       <i class="fa-solid fa-rotate-left mr-1"></i> Reset
@@ -52,10 +60,13 @@
 
 <!-- Input Box -->
 <div class="card-glass mb-4">
-  <h5 style="font-weight: 700; color: var(--text-primary);" class="mb-3">Enter text to analyze</h5>
-  <textarea id="playgroundInput" class="form-control mb-3" rows="4" placeholder="Type text or paste a tweet here..." style="border-radius: 12px; font-size: 15px; padding: 15px; resize: none;"></textarea>
+  <h5 style="font-weight: 700; color: var(--text-primary);" class="mb-3">Enter text to process</h5>
+  <div id="playgroundError" class="alert alert-danger mb-3" style="display: none; border-radius: 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444;">
+    <i class="fa-solid fa-circle-exclamation mr-2"></i><span id="playgroundErrorText"></span>
+  </div>
+  <textarea id="playgroundInput" class="form-control mb-3" rows="3" placeholder="Type a sentence or paste social text here..." style="border-radius: 12px; font-size: 15px; padding: 15px; resize: none;"></textarea>
   <button class="btn btn-primary px-5 py-2" style="border-radius: 10px; font-weight: 600; height: 48px;" onclick="analyzePlaygroundText()" id="btnAnalyze">
-    Analyze Preprocessing Pipeline <i class="fa-solid fa-gears ml-1"></i>
+    Run NLP Pipeline <i class="fa-solid fa-gears ml-1"></i>
   </button>
 </div>
 
@@ -140,7 +151,7 @@
 
         <div class="mb-3">
           <span class="text-muted small">Emotion Detected</span>
-          <div style="font-weight: 600; color: #ec4899;" id="predEmotion">Happiness</div>
+          <div style="font-weight: 700; font-size: 20px; color: #ec4899;" id="predEmotion">Happiness</div>
         </div>
 
         <div class="mb-4">
@@ -151,7 +162,7 @@
         </div>
 
         <div class="p-3 mb-3 border-left border-primary" style="background: var(--bg-main); border-radius: 0 10px 10px 0;">
-          <h6 style="font-weight: 700; color: var(--primary-color);" class="mb-1"><i class="fa-solid fa-circle-info"></i> Model Explanation</h6>
+          <h6 style="font-weight: 700; color: var(--primary-color);" class="mb-1"><i class="fa-solid fa-circle-info"></i> Pipeline Summary</h6>
           <p class="text-muted mb-0 small" id="explanationText">Explain why the model predicted this.</p>
         </div>
 
@@ -177,91 +188,89 @@
     </div>
   </div>
 
-  <!-- Preprocessing Pipeline Cards -->
-  <h4 style="font-weight: 800; color: var(--text-primary);" class="mt-4 mb-3">Preprocessing Pipeline Pipeline Steps</h4>
+  <!-- Preprocessing Pipeline: 10 Educational Stages -->
+  <h4 style="font-weight: 800; color: var(--text-primary);" class="mt-4 mb-3">
+    <i class="fa-solid fa-stream text-primary mr-2"></i>NLP Preprocessing Pipeline (10 Stages)
+  </h4>
   <div class="row">
-    <div class="col-md-4 col-sm-6">
+    <!-- 1. Raw Text -->
+    <div class="col-md-4 col-sm-6 mb-3">
       <div class="step-card">
-        <div class="step-title">Original Text</div>
+        <div class="step-number">Stage 1</div>
+        <div class="step-title">Raw Text</div>
         <div class="step-value" id="valOriginal">-</div>
       </div>
     </div>
-    <div class="col-md-4 col-sm-6">
+    <!-- 2. Lowercase Conversion -->
+    <div class="col-md-4 col-sm-6 mb-3">
       <div class="step-card">
+        <div class="step-number">Stage 2</div>
         <div class="step-title">Lowercase Conversion</div>
         <div class="step-value" id="valLowercase">-</div>
       </div>
     </div>
-    <div class="col-md-4 col-sm-6">
+    <!-- 3. URL & Mention Removal -->
+    <div class="col-md-4 col-sm-6 mb-3">
       <div class="step-card">
-        <div class="step-title">URL Removal</div>
-        <div class="step-value" id="valUrls">-</div>
+        <div class="step-number">Stage 3</div>
+        <div class="step-title">URL & Mention Removal</div>
+        <div class="step-value" id="valUrlsMentions">-</div>
       </div>
     </div>
-    <div class="col-md-4 col-sm-6">
+    <!-- 4. Special Characters / Punctuation -->
+    <div class="col-md-4 col-sm-6 mb-3">
       <div class="step-card">
-        <div class="step-title">Mention Removal</div>
-        <div class="step-value" id="valMentions">-</div>
-      </div>
-    </div>
-    <div class="col-md-4 col-sm-6">
-      <div class="step-card">
-        <div class="step-title">Hashtag Processing</div>
-        <div class="step-value" id="valHashtags">-</div>
-      </div>
-    </div>
-    <div class="col-md-4 col-sm-6">
-      <div class="step-card">
-        <div class="step-title">Emoji Processing</div>
-        <div class="step-value" id="valEmojis">-</div>
-      </div>
-    </div>
-    <div class="col-md-4 col-sm-6">
-      <div class="step-card">
+        <div class="step-number">Stage 4</div>
         <div class="step-title">Punctuation Removal</div>
         <div class="step-value" id="valPunctuation">-</div>
       </div>
     </div>
-    <div class="col-md-4 col-sm-6">
+    <!-- 5. Emoji Processing -->
+    <div class="col-md-4 col-sm-6 mb-3">
       <div class="step-card">
-        <div class="step-title">Stopword Removal</div>
-        <div class="step-value" id="valStopwords">-</div>
+        <div class="step-number">Stage 5</div>
+        <div class="step-title">Emoji Processing</div>
+        <div class="step-value" id="valEmojis">-</div>
       </div>
     </div>
-    <div class="col-md-4 col-sm-6">
+    <!-- 6. Tokenization -->
+    <div class="col-md-4 col-sm-6 mb-3">
       <div class="step-card">
+        <div class="step-number">Stage 6</div>
         <div class="step-title">Tokenization</div>
         <div class="step-value" id="valTokens">-</div>
       </div>
     </div>
-    <div class="col-md-4 col-sm-6">
+    <!-- 7. Stopword Removal -->
+    <div class="col-md-4 col-sm-6 mb-3">
       <div class="step-card">
-        <div class="step-title">Lemmatization</div>
-        <div class="step-value" id="valLemmatization">-</div>
+        <div class="step-number">Stage 7</div>
+        <div class="step-title">Stopword Removal</div>
+        <div class="step-value" id="valStopwords">-</div>
       </div>
     </div>
-    <div class="col-md-4 col-sm-6">
+    <!-- 8. Stemming -->
+    <div class="col-md-4 col-sm-6 mb-3">
       <div class="step-card">
+        <div class="step-number">Stage 8</div>
         <div class="step-title">Stemming</div>
         <div class="step-value" id="valStemming">-</div>
       </div>
     </div>
-    <div class="col-md-4 col-sm-6">
+    <!-- 9. Lemmatization -->
+    <div class="col-md-4 col-sm-6 mb-3">
       <div class="step-card">
-        <div class="step-title">POS Tagging</div>
-        <div class="step-value" id="valPOS">-</div>
+        <div class="step-number">Stage 9</div>
+        <div class="step-title">Lemmatization</div>
+        <div class="step-value" id="valLemmatization">-</div>
       </div>
     </div>
-    <div class="col-md-4 col-sm-6">
-      <div class="step-card text-truncate">
-        <div class="step-title">Named Entity Recognition</div>
-        <div class="step-value" id="valNER">-</div>
-      </div>
-    </div>
-    <div class="col-md-8 col-sm-12">
-      <div class="step-card" style="border-left-color: #10b981;">
+    <!-- 10. Final Cleaned Text -->
+    <div class="col-12 mb-3">
+      <div class="step-card" style="border-left-color: #10b981; background: rgba(16, 185, 129, 0.05);">
+        <div class="step-number" style="color: #10b981;">Stage 10 (Final Output)</div>
         <div class="step-title" style="color: #10b981;">Final Cleaned Text</div>
-        <div class="step-value font-weight-bold" id="valFinalClean">-</div>
+        <div class="step-value font-weight-bold" id="valFinalClean" style="font-size: 16px;">-</div>
       </div>
     </div>
   </div>
@@ -274,6 +283,7 @@
   let freqChart = null;
 
   function loadSampleTweet() {
+    $('#playgroundError').hide();
     $.ajax({
       url: '/sentiment/playground/api/sample/',
       type: 'GET',
@@ -287,8 +297,11 @@
 
   function analyzePlaygroundText() {
     const text = $('#playgroundInput').val().trim();
+    $('#playgroundError').hide();
+    
     if (!text) {
-      alert("Please enter some text or click 'Get Sample Tweet' first.");
+      $('#playgroundErrorText').text("Please enter some text or click 'Sample Text' first.");
+      $('#playgroundError').fadeIn();
       return;
     }
 
@@ -309,23 +322,19 @@
         $('#playgroundLoader').hide();
         $('#playgroundResults').show();
 
-        // Populate Preprocessing steps
-        $('#valOriginal').text(data.steps.original);
-        $('#valLowercase').text(data.steps.lowercase);
-        $('#valUrls').text(data.steps.no_urls);
-        $('#valMentions').text(data.steps.no_mentions);
-        $('#valHashtags').text(data.steps.hashtag_processed);
-        $('#valEmojis').text(data.steps.emoji_processed);
-        $('#valPunctuation').text(data.steps.no_punctuation);
-        $('#valStopwords').text(data.steps.stopword_removed);
-        $('#valTokens').text(data.steps.tokenization);
-        $('#valLemmatization').text(data.steps.lemmatization);
-        $('#valStemming').text(data.steps.stemming);
-        $('#valPOS').text(data.steps.pos_tagging);
-        $('#valNER').text(data.steps.ner);
-        $('#valFinalClean').text(data.steps.final_clean);
+        // Populate 10 Preprocessing steps
+        $('#valOriginal').text(data.steps.original || '-');
+        $('#valLowercase').text(data.steps.lowercase || '-');
+        $('#valUrlsMentions').text(data.steps.no_urls_mentions || '-');
+        $('#valPunctuation').text(data.steps.no_punctuation || '-');
+        $('#valEmojis').text(data.steps.emoji_processed || '-');
+        $('#valTokens').text(data.steps.tokenization || '-');
+        $('#valStopwords').text(data.steps.stopword_removed || '-');
+        $('#valStemming').text(data.steps.stemming || '-');
+        $('#valLemmatization').text(data.steps.lemmatization || '-');
+        $('#valFinalClean').text(data.steps.final_clean || '-');
 
-        // Populate Sentiment
+        // Populate Sentiment & Emotion
         $('#predSentiment').text(data.sentiment);
         $('#predConfidence').text(`${data.confidence}%`);
         $('#predEmotion').text(data.emotion);
@@ -385,10 +394,15 @@
           cloud.append(`<span class="badge p-2 m-1" style="font-size: ${12 + (f.count*2)}px; background: var(--accent-hover); color: var(--primary-color); border: 1px solid var(--border-color); border-radius: 12px;">${f.word}</span>`);
         });
       },
-      error: function() {
+      error: function(xhr) {
         $('#btnAnalyze').prop('disabled', false);
         $('#playgroundLoader').hide();
-        alert("Failed to analyze text. Please check connection.");
+        let errMsg = "Failed to analyze text. Please check connection.";
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          errMsg = xhr.responseJSON.error;
+        }
+        $('#playgroundErrorText').text(errMsg);
+        $('#playgroundError').fadeIn();
       }
     });
   }
@@ -401,10 +415,15 @@
 
   function resetPlayground() {
     $('#playgroundInput').val('');
+    $('#playgroundError').hide();
     $('#playgroundResults').hide();
   }
 
   $(document).ready(function() {
+    $('#playgroundInput').on('input', function() {
+      $('#playgroundError').hide();
+    });
+
     $('#dlMenu').click(function(e) {
       e.preventDefault();
       e.stopPropagation();
