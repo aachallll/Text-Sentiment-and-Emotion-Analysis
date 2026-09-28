@@ -30,6 +30,7 @@ dataset_service = DatasetService()
 def sentiment_analysis(request):
     return redirect('/sentiment/type/')
 
+@csrf_exempt
 def sentiment_analysis_type(request):
     """Analyze manual text for both sentiment and emotion with input validation."""
     if request.method == 'POST':
