@@ -1,7 +1,7 @@
 {% extends 'home/base.html' %}
 {% load static %}
 
-{% block title %}NLP Preprocessing Playground - Text Sentiment & Emotion Analysis{% endblock %}
+{% block title %}NLP Processing - POS Tagging & NER - Text Sentiment & Emotion Analysis{% endblock %}
 {% block active_playground %}active{% endblock %}
 
 {% block extra_css %}
@@ -39,14 +39,66 @@
     font-weight: 700;
     color: var(--text-primary);
   }
+  .nav-pills .nav-link {
+    color: var(--text-secondary);
+    border-radius: 10px !important;
+    font-weight: 600;
+    padding: 10px 18px;
+    transition: all 0.2s ease;
+  }
+  .nav-pills .nav-link:hover {
+    color: var(--primary-color);
+    background-color: var(--accent-hover);
+  }
+  .nav-pills .nav-link.active {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+    box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+  }
+  .pos-tag-badge {
+    background: rgba(99, 102, 241, 0.15);
+    color: #6366f1;
+    font-weight: 700;
+    font-family: monospace;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    display: inline-block;
+  }
+  .entity-badge-PERSON {
+    background: rgba(59, 130, 246, 0.15);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+  .entity-badge-LOCATION {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+  }
+  .entity-badge-ORGANIZATION {
+    background: rgba(168, 85, 247, 0.15);
+    color: #a855f7;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+  }
+  .entity-badge-DATE {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+  .entity-badge-MONEY {
+    background: rgba(236, 72, 153, 0.15);
+    color: #ec4899;
+    border: 1px solid rgba(236, 72, 153, 0.3);
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row align-items-center mb-4">
   <div class="col-md-7">
-    <h1 style="font-weight: 800; color: var(--text-primary);">NLP Preprocessing Playground</h1>
-    <p class="text-muted">Explore step-by-step natural language processing pipeline and text statistics.</p>
+    <h1 style="font-weight: 800; color: var(--text-primary);">NLP Processing Playground</h1>
+    <p class="text-muted">Educational workbench for text preprocessing, Part-of-Speech tagging, and Named Entity Recognition.</p>
   </div>
   <div class="col-md-5 text-md-right">
     <button class="btn btn-outline-primary mr-2" style="border-radius: 10px; font-weight: 600;" onclick="loadSampleTweet()">
@@ -60,227 +112,332 @@
 
 <!-- Input Box -->
 <div class="card-glass mb-4">
-  <h5 style="font-weight: 700; color: var(--text-primary);" class="mb-3">Enter text to process</h5>
+  <h5 style="font-weight: 700; color: var(--text-primary);" class="mb-3">Enter text to analyze</h5>
+  
   <div id="playgroundError" class="alert alert-danger mb-3" style="display: none; border-radius: 12px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #ef4444;">
     <i class="fa-solid fa-circle-exclamation mr-2"></i><span id="playgroundErrorText"></span>
   </div>
-  <textarea id="playgroundInput" class="form-control mb-3" rows="3" placeholder="Type a sentence or paste social text here..." style="border-radius: 12px; font-size: 15px; padding: 15px; resize: none;"></textarea>
-  <button class="btn btn-primary px-5 py-2" style="border-radius: 10px; font-weight: 600; height: 48px;" onclick="analyzePlaygroundText()" id="btnAnalyze">
-    Run NLP Pipeline <i class="fa-solid fa-gears ml-1"></i>
-  </button>
+  
+  <textarea id="playgroundInput" class="form-control mb-3" rows="3" placeholder="Type a sentence (e.g. 'Rahul visited Mumbai on Monday.') or paste text here..." style="border-radius: 12px; font-size: 15px; padding: 15px; resize: none;"></textarea>
+  
+  <div class="d-flex flex-wrap">
+    <button class="btn btn-primary px-4 py-2 mr-2 mb-2" style="border-radius: 10px; font-weight: 600; height: 46px;" onclick="analyzePlaygroundText()" id="btnAnalyze">
+      <i class="fa-solid fa-gears mr-1"></i> Preprocessing Pipeline
+    </button>
+    <button class="btn btn-outline-primary px-4 py-2 mr-2 mb-2" style="border-radius: 10px; font-weight: 600; height: 46px;" onclick="runPosTagging()" id="btnPos">
+      <i class="fa-solid fa-tags mr-1"></i> POS Tagging
+    </button>
+    <button class="btn btn-outline-info px-4 py-2 mr-2 mb-2" style="border-radius: 10px; font-weight: 600; height: 46px;" onclick="runNerExtraction()" id="btnNer">
+      <i class="fa-solid fa-id-card mr-1"></i> Named Entities (NER)
+    </button>
+  </div>
 </div>
 
 <!-- Loader -->
 <div class="text-center p-5" id="playgroundLoader" style="display: none;">
   <i class="fa-solid fa-gear fa-spin fa-3x text-primary mb-3"></i>
-  <h6 style="font-weight: 600; color: var(--text-primary);">Running Preprocessing Pipeline...</h6>
+  <h6 style="font-weight: 600; color: var(--text-primary);" id="loaderText">Running NLP Task...</h6>
 </div>
 
 <!-- Results Area -->
 <div id="playgroundResults" style="display: none;">
   
-  <!-- Stats Row -->
-  <div class="row mb-4">
-    <div class="col-md-2 col-6 mb-2">
-      <div class="card-glass text-center p-3">
-        <span class="text-muted small">Word Count</span>
-        <div class="kpi-value" id="statWords">0</div>
-      </div>
-    </div>
-    <div class="col-md-2 col-6 mb-2">
-      <div class="card-glass text-center p-3">
-        <span class="text-muted small">Char Count</span>
-        <div class="kpi-value" id="statChars">0</div>
-      </div>
-    </div>
-    <div class="col-md-2 col-6 mb-2">
-      <div class="card-glass text-center p-3">
-        <span class="text-muted small">Tokens</span>
-        <div class="kpi-value" id="statTokens">0</div>
-      </div>
-    </div>
-    <div class="col-md-2 col-6 mb-2">
-      <div class="card-glass text-center p-3">
-        <span class="text-muted small">Stopwords</span>
-        <div class="kpi-value" id="statStopwords">0</div>
-      </div>
-    </div>
-    <div class="col-md-2 col-6 mb-2">
-      <div class="card-glass text-center p-3">
-        <span class="text-muted small">Readability</span>
-        <div class="kpi-value" id="statReadability">0</div>
-      </div>
-    </div>
-    <div class="col-md-2 col-6 mb-2">
-      <div class="card-glass text-center p-3">
-        <span class="text-muted small">Reading Time</span>
-        <div class="kpi-value" id="statTime">0s</div>
-      </div>
-    </div>
-  </div>
+  <!-- Tabs Navigation -->
+  <ul class="nav nav-pills mb-4" id="nlpTabs" role="tablist" style="background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 6px;">
+    <li class="nav-item" role="presentation" style="flex: 1; text-align: center;">
+      <a class="nav-link active" id="tab-preprocessing-link" data-toggle="pill" href="#tab-preprocessing" role="tab">
+        <i class="fa-solid fa-gears mr-1"></i> Preprocessing Pipeline
+      </a>
+    </li>
+    <li class="nav-item" role="presentation" style="flex: 1; text-align: center;">
+      <a class="nav-link" id="tab-pos-link" data-toggle="pill" href="#tab-pos" role="tab">
+        <i class="fa-solid fa-tags mr-1"></i> POS Tagging <span class="badge badge-primary ml-1" id="posCountBadge" style="display: none;">0</span>
+      </a>
+    </li>
+    <li class="nav-item" role="presentation" style="flex: 1; text-align: center;">
+      <a class="nav-link" id="tab-ner-link" data-toggle="pill" href="#tab-ner" role="tab">
+        <i class="fa-solid fa-id-card mr-1"></i> Named Entities (NER) <span class="badge badge-info ml-1" id="nerCountBadge" style="display: none;">0</span>
+      </a>
+    </li>
+  </ul>
 
-  <!-- Predictions & Visualizations Grid -->
-  <div class="row">
-    <!-- Model outputs -->
-    <div class="col-md-6 mb-4">
-      <div class="card-glass" style="height: 100%;">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 0;">Sentiment Predictions</h4>
-          
-          <div class="dropdown">
-            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" style="border-radius: 8px;" type="button" id="dlMenu" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-              <i class="fa-solid fa-download"></i> Export
+  <!-- Tab Contents -->
+  <div class="tab-content" id="nlpTabContent">
+    
+    <!-- TAB 1: PREPROCESSING PIPELINE -->
+    <div class="tab-pane fade show active" id="tab-preprocessing" role="tabpanel">
+      <!-- Stats Row -->
+      <div class="row mb-4">
+        <div class="col-md-2 col-6 mb-2">
+          <div class="card-glass text-center p-3">
+            <span class="text-muted small">Word Count</span>
+            <div class="kpi-value" id="statWords">0</div>
+          </div>
+        </div>
+        <div class="col-md-2 col-6 mb-2">
+          <div class="card-glass text-center p-3">
+            <span class="text-muted small">Char Count</span>
+            <div class="kpi-value" id="statChars">0</div>
+          </div>
+        </div>
+        <div class="col-md-2 col-6 mb-2">
+          <div class="card-glass text-center p-3">
+            <span class="text-muted small">Tokens</span>
+            <div class="kpi-value" id="statTokens">0</div>
+          </div>
+        </div>
+        <div class="col-md-2 col-6 mb-2">
+          <div class="card-glass text-center p-3">
+            <span class="text-muted small">Stopwords</span>
+            <div class="kpi-value" id="statStopwords">0</div>
+          </div>
+        </div>
+        <div class="col-md-2 col-6 mb-2">
+          <div class="card-glass text-center p-3">
+            <span class="text-muted small">Readability</span>
+            <div class="kpi-value" id="statReadability">0</div>
+          </div>
+        </div>
+        <div class="col-md-2 col-6 mb-2">
+          <div class="card-glass text-center p-3">
+            <span class="text-muted small">Reading Time</span>
+            <div class="kpi-value" id="statTime">0s</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Predictions & Visualizations Grid -->
+      <div class="row">
+        <!-- Model outputs -->
+        <div class="col-md-6 mb-4">
+          <div class="card-glass" style="height: 100%;">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+              <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 0;">Sentiment Predictions</h4>
+              
+              <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" style="border-radius: 8px;" type="button" id="dlMenu" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                  <i class="fa-solid fa-download"></i> Export
+                </button>
+                <div class="dropdown-menu dropdown-menu-right bg-dark border border-secondary" aria-labelledby="dlMenu">
+                  <a class="dropdown-item text-white" href="/sentiment/playground/export-pdf/" target="_blank">Export PDF</a>
+                  <a class="dropdown-item text-white" href="/sentiment/playground/export-docx/">Export Word Document</a>
+                </div>
+              </div>
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-6">
+                <span class="text-muted small">Predicted Sentiment</span>
+                <div class="kpi-value text-success" id="predSentiment" style="font-size: 28px;">Positive</div>
+              </div>
+              <div class="col-6">
+                <span class="text-muted small">Confidence Score</span>
+                <div class="kpi-value" id="predConfidence" style="font-size: 28px;">85%</div>
+              </div>
+            </div>
+
+            <div class="mb-3">
+              <span class="text-muted small">Emotion Detected</span>
+              <div style="font-weight: 700; font-size: 20px; color: #ec4899;" id="predEmotion">Happiness</div>
+            </div>
+
+            <div class="mb-4">
+              <span class="text-muted small">Highlighted Sentiment (Green: Pos, Red: Neg)</span>
+              <div class="p-3 mt-1 border rounded" style="background: var(--bg-main); border-color: var(--border-color); font-size: 15px; color: var(--text-primary);" id="highlightedWords">
+              </div>
+            </div>
+
+            <div class="p-3 mb-3 border-left border-primary" style="background: var(--bg-main); border-radius: 0 10px 10px 0;">
+              <h6 style="font-weight: 700; color: var(--primary-color);" class="mb-1"><i class="fa-solid fa-circle-info"></i> Pipeline Summary</h6>
+              <p class="text-muted mb-0 small" id="explanationText">Explain why the model predicted this.</p>
+            </div>
+
+            <button class="btn btn-outline-primary w-100" style="border-radius: 10px; font-weight: 600;" onclick="copyProcessedText()">
+              <i class="fa-solid fa-copy mr-1"></i> Copy Processed Text
             </button>
-            <div class="dropdown-menu dropdown-menu-right bg-dark border border-secondary" aria-labelledby="dlMenu">
-              <a class="dropdown-item text-white" href="/sentiment/playground/export-pdf/" target="_blank">Export PDF</a>
-              <a class="dropdown-item text-white" href="/sentiment/playground/export-docx/">Export Word Document</a>
+          </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="col-md-6 mb-4">
+          <div class="card-glass" style="height: 100%;">
+            <h5 style="font-weight: 700; color: var(--text-primary);" class="mb-4">Token Frequencies</h5>
+            <div style="height: 250px; position: relative;">
+              <canvas id="tokenFrequencyChart"></canvas>
+            </div>
+            
+            <h6 class="text-muted small mt-4 mb-2">Word Cloud Keywords</h6>
+            <div id="wordcloudKeywords" class="d-flex flex-wrap">
             </div>
           </div>
         </div>
+      </div>
 
-        <div class="row mb-3">
-          <div class="col-6">
-            <span class="text-muted small">Predicted Sentiment</span>
-            <div class="kpi-value text-success" id="predSentiment" style="font-size: 28px;">Positive</div>
-          </div>
-          <div class="col-6">
-            <span class="text-muted small">Confidence Score</span>
-            <div class="kpi-value" id="predConfidence" style="font-size: 28px;">85%</div>
-          </div>
-        </div>
-
-        <div class="mb-3">
-          <span class="text-muted small">Emotion Detected</span>
-          <div style="font-weight: 700; font-size: 20px; color: #ec4899;" id="predEmotion">Happiness</div>
-        </div>
-
-        <div class="mb-4">
-          <span class="text-muted small">Highlighted Sentiment (Green: Pos, Red: Neg)</span>
-          <div class="p-3 mt-1 border rounded" style="background: var(--bg-main); border-color: var(--border-color); font-size: 15px; color: var(--text-primary);" id="highlightedWords">
-            <!-- Highlighted text -->
+      <!-- Preprocessing Pipeline: 10 Educational Stages -->
+      <h4 style="font-weight: 800; color: var(--text-primary);" class="mt-4 mb-3">
+        <i class="fa-solid fa-stream text-primary mr-2"></i>NLP Preprocessing Pipeline (10 Stages)
+      </h4>
+      <div class="row">
+        <div class="col-md-4 col-sm-6 mb-3">
+          <div class="step-card">
+            <div class="step-number">Stage 1</div>
+            <div class="step-title">Raw Text</div>
+            <div class="step-value" id="valOriginal">-</div>
           </div>
         </div>
-
-        <div class="p-3 mb-3 border-left border-primary" style="background: var(--bg-main); border-radius: 0 10px 10px 0;">
-          <h6 style="font-weight: 700; color: var(--primary-color);" class="mb-1"><i class="fa-solid fa-circle-info"></i> Pipeline Summary</h6>
-          <p class="text-muted mb-0 small" id="explanationText">Explain why the model predicted this.</p>
+        <div class="col-md-4 col-sm-6 mb-3">
+          <div class="step-card">
+            <div class="step-number">Stage 2</div>
+            <div class="step-title">Lowercase Conversion</div>
+            <div class="step-value" id="valLowercase">-</div>
+          </div>
         </div>
-
-        <button class="btn btn-outline-primary w-100" style="border-radius: 10px; font-weight: 600;" onclick="copyProcessedText()">
-          <i class="fa-solid fa-copy mr-1"></i> Copy Processed Text
-        </button>
+        <div class="col-md-4 col-sm-6 mb-3">
+          <div class="step-card">
+            <div class="step-number">Stage 3</div>
+            <div class="step-title">URL & Mention Removal</div>
+            <div class="step-value" id="valUrlsMentions">-</div>
+          </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-3">
+          <div class="step-card">
+            <div class="step-number">Stage 4</div>
+            <div class="step-title">Punctuation Removal</div>
+            <div class="step-value" id="valPunctuation">-</div>
+          </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-3">
+          <div class="step-card">
+            <div class="step-number">Stage 5</div>
+            <div class="step-title">Emoji Processing</div>
+            <div class="step-value" id="valEmojis">-</div>
+          </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-3">
+          <div class="step-card">
+            <div class="step-number">Stage 6</div>
+            <div class="step-title">Tokenization</div>
+            <div class="step-value" id="valTokens">-</div>
+          </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-3">
+          <div class="step-card">
+            <div class="step-number">Stage 7</div>
+            <div class="step-title">Stopword Removal</div>
+            <div class="step-value" id="valStopwords">-</div>
+          </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-3">
+          <div class="step-card">
+            <div class="step-number">Stage 8</div>
+            <div class="step-title">Stemming</div>
+            <div class="step-value" id="valStemming">-</div>
+          </div>
+        </div>
+        <div class="col-md-4 col-sm-6 mb-3">
+          <div class="step-card">
+            <div class="step-number">Stage 9</div>
+            <div class="step-title">Lemmatization</div>
+            <div class="step-value" id="valLemmatization">-</div>
+          </div>
+        </div>
+        <div class="col-12 mb-3">
+          <div class="step-card" style="border-left-color: #10b981; background: rgba(16, 185, 129, 0.05);">
+            <div class="step-number" style="color: #10b981;">Stage 10 (Final Output)</div>
+            <div class="step-title" style="color: #10b981;">Final Cleaned Text</div>
+            <div class="step-value font-weight-bold" id="valFinalClean" style="font-size: 16px;">-</div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Chart -->
-    <div class="col-md-6 mb-4">
-      <div class="card-glass" style="height: 100%;">
-        <h5 style="font-weight: 700; color: var(--text-primary);" class="mb-4">Token Frequencies</h5>
-        <div style="height: 250px; position: relative;">
-          <canvas id="tokenFrequencyChart"></canvas>
+    <!-- TAB 2: PART-OF-SPEECH (POS) TAGGING -->
+    <div class="tab-pane fade" id="tab-pos" role="tabpanel">
+      <div class="card-glass">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 3px;">
+              <i class="fa-solid fa-tags text-primary mr-2"></i>Part-of-Speech (POS) Tagging
+            </h4>
+            <p class="text-muted small mb-0">Identifies the grammatical category and syntactic role for every word in the sentence.</p>
+          </div>
+          <button class="btn btn-sm btn-outline-primary" onclick="copyPosTable()" style="border-radius: 8px;">
+            <i class="fa-solid fa-copy mr-1"></i> Copy Table
+          </button>
         </div>
-        
-        <h6 class="text-muted small mt-4 mb-2">Word Cloud Keywords</h6>
-        <div id="wordcloudKeywords" class="d-flex flex-wrap">
-          <!-- Badges -->
+
+        <div class="table-responsive">
+          <table class="table table-hover" id="posTable" style="color: var(--text-primary); border-color: var(--border-color);">
+            <thead style="background: var(--bg-main);">
+              <tr>
+                <th style="width: 60px;">#</th>
+                <th style="width: 200px;">Word</th>
+                <th style="width: 140px;">POS Tag</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody id="posTableBody">
+              <tr>
+                <td colspan="4" class="text-center text-muted py-4">No POS data yet. Enter text and click "POS Tagging" or "Preprocessing Pipeline".</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
+
+    <!-- TAB 3: NAMED ENTITY RECOGNITION (NER) -->
+    <div class="tab-pane fade" id="tab-ner" role="tabpanel">
+      <div class="card-glass">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h4 style="font-weight: 700; color: var(--text-primary); margin-bottom: 3px;">
+              <i class="fa-solid fa-id-card text-info mr-2"></i>Named Entity Recognition (NER)
+            </h4>
+            <p class="text-muted small mb-0">Detects named real-world entities such as Persons, Locations, Organizations, Dates, Times, and Monetary values.</p>
+          </div>
+        </div>
+
+        <!-- No entities notice -->
+        <div id="nerNoticeNoEntities" class="alert mb-3" style="display: none; border-radius: 12px; background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); color: var(--text-primary);">
+          <i class="fa-solid fa-circle-info mr-2" style="color: var(--primary-color);"></i>
+          <strong>No named entities found in the given text.</strong>
+        </div>
+
+        <!-- Entities Table -->
+        <div id="nerTableContainer" class="table-responsive" style="display: none;">
+          <table class="table table-hover" id="nerTable" style="color: var(--text-primary); border-color: var(--border-color);">
+            <thead style="background: var(--bg-main);">
+              <tr>
+                <th style="width: 60px;">#</th>
+                <th style="width: 260px;">Entity</th>
+                <th>Type</th>
+              </tr>
+            </thead>
+            <tbody id="nerTableBody">
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty state placeholder -->
+        <div id="nerEmptyState" class="text-center text-muted py-4">
+          No NER data yet. Enter text and click "Named Entities (NER)" or "Preprocessing Pipeline".
+        </div>
+      </div>
+    </div>
+
   </div>
-
-  <!-- Preprocessing Pipeline: 10 Educational Stages -->
-  <h4 style="font-weight: 800; color: var(--text-primary);" class="mt-4 mb-3">
-    <i class="fa-solid fa-stream text-primary mr-2"></i>NLP Preprocessing Pipeline (10 Stages)
-  </h4>
-  <div class="row">
-    <!-- 1. Raw Text -->
-    <div class="col-md-4 col-sm-6 mb-3">
-      <div class="step-card">
-        <div class="step-number">Stage 1</div>
-        <div class="step-title">Raw Text</div>
-        <div class="step-value" id="valOriginal">-</div>
-      </div>
-    </div>
-    <!-- 2. Lowercase Conversion -->
-    <div class="col-md-4 col-sm-6 mb-3">
-      <div class="step-card">
-        <div class="step-number">Stage 2</div>
-        <div class="step-title">Lowercase Conversion</div>
-        <div class="step-value" id="valLowercase">-</div>
-      </div>
-    </div>
-    <!-- 3. URL & Mention Removal -->
-    <div class="col-md-4 col-sm-6 mb-3">
-      <div class="step-card">
-        <div class="step-number">Stage 3</div>
-        <div class="step-title">URL & Mention Removal</div>
-        <div class="step-value" id="valUrlsMentions">-</div>
-      </div>
-    </div>
-    <!-- 4. Special Characters / Punctuation -->
-    <div class="col-md-4 col-sm-6 mb-3">
-      <div class="step-card">
-        <div class="step-number">Stage 4</div>
-        <div class="step-title">Punctuation Removal</div>
-        <div class="step-value" id="valPunctuation">-</div>
-      </div>
-    </div>
-    <!-- 5. Emoji Processing -->
-    <div class="col-md-4 col-sm-6 mb-3">
-      <div class="step-card">
-        <div class="step-number">Stage 5</div>
-        <div class="step-title">Emoji Processing</div>
-        <div class="step-value" id="valEmojis">-</div>
-      </div>
-    </div>
-    <!-- 6. Tokenization -->
-    <div class="col-md-4 col-sm-6 mb-3">
-      <div class="step-card">
-        <div class="step-number">Stage 6</div>
-        <div class="step-title">Tokenization</div>
-        <div class="step-value" id="valTokens">-</div>
-      </div>
-    </div>
-    <!-- 7. Stopword Removal -->
-    <div class="col-md-4 col-sm-6 mb-3">
-      <div class="step-card">
-        <div class="step-number">Stage 7</div>
-        <div class="step-title">Stopword Removal</div>
-        <div class="step-value" id="valStopwords">-</div>
-      </div>
-    </div>
-    <!-- 8. Stemming -->
-    <div class="col-md-4 col-sm-6 mb-3">
-      <div class="step-card">
-        <div class="step-number">Stage 8</div>
-        <div class="step-title">Stemming</div>
-        <div class="step-value" id="valStemming">-</div>
-      </div>
-    </div>
-    <!-- 9. Lemmatization -->
-    <div class="col-md-4 col-sm-6 mb-3">
-      <div class="step-card">
-        <div class="step-number">Stage 9</div>
-        <div class="step-title">Lemmatization</div>
-        <div class="step-value" id="valLemmatization">-</div>
-      </div>
-    </div>
-    <!-- 10. Final Cleaned Text -->
-    <div class="col-12 mb-3">
-      <div class="step-card" style="border-left-color: #10b981; background: rgba(16, 185, 129, 0.05);">
-        <div class="step-number" style="color: #10b981;">Stage 10 (Final Output)</div>
-        <div class="step-title" style="color: #10b981;">Final Cleaned Text</div>
-        <div class="step-value font-weight-bold" id="valFinalClean" style="font-size: 16px;">-</div>
-      </div>
-    </div>
-  </div>
-
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
   let freqChart = null;
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return $('<div>').text(str).html();
+  }
 
   function loadSampleTweet() {
     $('#playgroundError').hide();
@@ -295,18 +452,76 @@
     });
   }
 
+  function renderPosTokens(tokens) {
+    const tbody = $('#posTableBody');
+    tbody.empty();
+    if (!tokens || tokens.length === 0) {
+      tbody.append('<tr><td colspan="4" class="text-center text-muted py-4">No tokens available.</td></tr>');
+      $('#posCountBadge').hide();
+      return;
+    }
+
+    tokens.forEach((t, i) => {
+      tbody.append(`
+        <tr>
+          <td class="text-muted">${i + 1}</td>
+          <td><strong style="font-size: 15px;">${escapeHtml(t.word)}</strong></td>
+          <td><span class="pos-tag-badge">${escapeHtml(t.tag)}</span></td>
+          <td>${escapeHtml(t.description)}</td>
+        </tr>
+      `);
+    });
+    $('#posCountBadge').text(tokens.length).show();
+  }
+
+  function renderNerEntities(entities) {
+    const tbody = $('#nerTableBody');
+    tbody.empty();
+    $('#nerEmptyState').hide();
+
+    if (!entities || entities.length === 0) {
+      $('#nerTableContainer').hide();
+      $('#nerNoticeNoEntities').show();
+      $('#nerCountBadge').text('0').show();
+      return;
+    }
+
+    $('#nerNoticeNoEntities').hide();
+    $('#nerTableContainer').show();
+    
+    entities.forEach((e, i) => {
+      let badgeClass = 'pos-tag-badge';
+      let norm = (e.label || '').toUpperCase();
+      if (norm.includes('PERSON')) badgeClass += ' entity-badge-PERSON';
+      else if (norm.includes('LOCATION') || norm.includes('GPE')) badgeClass += ' entity-badge-LOCATION';
+      else if (norm.includes('ORG')) badgeClass += ' entity-badge-ORGANIZATION';
+      else if (norm.includes('DATE') || norm.includes('TIME')) badgeClass += ' entity-badge-DATE';
+      else if (norm.includes('MONEY')) badgeClass += ' entity-badge-MONEY';
+      
+      tbody.append(`
+        <tr>
+          <td class="text-muted">${i + 1}</td>
+          <td><strong style="font-size: 15px;">${escapeHtml(e.text)}</strong></td>
+          <td><span class="${badgeClass}">${escapeHtml(e.label)}</span></td>
+        </tr>
+      `);
+    });
+    $('#nerCountBadge').text(entities.length).show();
+  }
+
+  // 1. Full Preprocessing Pipeline
   function analyzePlaygroundText() {
     const text = $('#playgroundInput').val().trim();
     $('#playgroundError').hide();
     
     if (!text) {
-      $('#playgroundErrorText').text("Please enter some text or click 'Sample Text' first.");
+      $('#playgroundErrorText').text("Please enter some text.");
       $('#playgroundError').fadeIn();
       return;
     }
 
-    // Toggle loader
-    $('#btnAnalyze').prop('disabled', true);
+    $('#btnAnalyze, #btnPos, #btnNer').prop('disabled', true);
+    $('#loaderText').text('Running Preprocessing Pipeline...');
     $('#playgroundLoader').show();
     $('#playgroundResults').hide();
 
@@ -318,9 +533,10 @@
         csrfmiddlewaretoken: '{{ csrf_token }}'
       },
       success: function(data) {
-        $('#btnAnalyze').prop('disabled', false);
+        $('#btnAnalyze, #btnPos, #btnNer').prop('disabled', false);
         $('#playgroundLoader').hide();
         $('#playgroundResults').show();
+        $('#tab-preprocessing-link').tab('show');
 
         // Populate 10 Preprocessing steps
         $('#valOriginal').text(data.steps.original || '-');
@@ -341,7 +557,6 @@
         $('#highlightedWords').html(data.highlighted);
         $('#explanationText').text(data.explanation);
 
-        // Color Sentiment appropriately
         if (data.sentiment === 'Positive') {
           $('#predSentiment').css('color', '#10b981');
         } else if (data.sentiment === 'Negative') {
@@ -350,7 +565,7 @@
           $('#predSentiment').css('color', '#9ca3af');
         }
 
-        // Populate KPI stats
+        // Stats
         $('#statWords').text(data.word_count);
         $('#statChars').text(data.char_count);
         $('#statTokens').text(data.token_count);
@@ -358,9 +573,13 @@
         $('#statReadability').text(data.readability);
         $('#statTime').text(`${data.reading_time}s`);
 
+        // Populate POS and NER
+        if (data.pos_tokens) renderPosTokens(data.pos_tokens);
+        if (data.ner_entities) renderNerEntities(data.ner_entities);
+
         // Render token frequency chart
-        const words = data.frequencies.map(f => f.word);
-        const counts = data.frequencies.map(f => f.count);
+        const words = (data.frequencies || []).map(f => f.word);
+        const counts = (data.frequencies || []).map(f => f.count);
 
         if (freqChart) freqChart.destroy();
         const ctx = document.getElementById('tokenFrequencyChart').getContext('2d');
@@ -390,14 +609,100 @@
         // Word Cloud simulation badges
         const cloud = $('#wordcloudKeywords');
         cloud.empty();
-        data.frequencies.forEach(f => {
-          cloud.append(`<span class="badge p-2 m-1" style="font-size: ${12 + (f.count*2)}px; background: var(--accent-hover); color: var(--primary-color); border: 1px solid var(--border-color); border-radius: 12px;">${f.word}</span>`);
+        (data.frequencies || []).forEach(f => {
+          cloud.append(`<span class="badge p-2 m-1" style="font-size: ${12 + (f.count*2)}px; background: var(--accent-hover); color: var(--primary-color); border: 1px solid var(--border-color); border-radius: 12px;">${escapeHtml(f.word)}</span>`);
         });
       },
       error: function(xhr) {
-        $('#btnAnalyze').prop('disabled', false);
+        $('#btnAnalyze, #btnPos, #btnNer').prop('disabled', false);
         $('#playgroundLoader').hide();
         let errMsg = "Failed to analyze text. Please check connection.";
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          errMsg = xhr.responseJSON.error;
+        }
+        $('#playgroundErrorText').text(errMsg);
+        $('#playgroundError').fadeIn();
+      }
+    });
+  }
+
+  // 2. Standalone POS Tagging
+  function runPosTagging() {
+    const text = $('#playgroundInput').val().trim();
+    $('#playgroundError').hide();
+
+    if (!text) {
+      $('#playgroundErrorText').text("Please enter some text.");
+      $('#playgroundError').fadeIn();
+      return;
+    }
+
+    $('#btnAnalyze, #btnPos, #btnNer').prop('disabled', true);
+    $('#loaderText').text('Running POS Tagging...');
+    $('#playgroundLoader').show();
+
+    $.ajax({
+      url: '/api/pos-tag/',
+      type: 'POST',
+      data: {
+        text: text,
+        csrfmiddlewaretoken: '{{ csrf_token }}'
+      },
+      success: function(data) {
+        $('#btnAnalyze, #btnPos, #btnNer').prop('disabled', false);
+        $('#playgroundLoader').hide();
+        $('#playgroundResults').show();
+        
+        renderPosTokens(data.tokens);
+        $('#tab-pos-link').tab('show');
+      },
+      error: function(xhr) {
+        $('#btnAnalyze, #btnPos, #btnNer').prop('disabled', false);
+        $('#playgroundLoader').hide();
+        let errMsg = "Failed to run POS tagging.";
+        if (xhr.responseJSON && xhr.responseJSON.error) {
+          errMsg = xhr.responseJSON.error;
+        }
+        $('#playgroundErrorText').text(errMsg);
+        $('#playgroundError').fadeIn();
+      }
+    });
+  }
+
+  // 3. Standalone NER Extraction
+  function runNerExtraction() {
+    const text = $('#playgroundInput').val().trim();
+    $('#playgroundError').hide();
+
+    if (!text) {
+      $('#playgroundErrorText').text("Please enter some text.");
+      $('#playgroundError').fadeIn();
+      return;
+    }
+
+    $('#btnAnalyze, #btnPos, #btnNer').prop('disabled', true);
+    $('#loaderText').text('Extracting Named Entities (NER)...');
+    $('#playgroundLoader').show();
+
+    $.ajax({
+      url: '/api/ner/',
+      type: 'POST',
+      data: {
+        text: text,
+        csrfmiddlewaretoken: '{{ csrf_token }}'
+      },
+      success: function(data) {
+        $('#btnAnalyze, #btnPos, #btnNer').prop('disabled', false);
+        $('#playgroundLoader').hide();
+        $('#playgroundResults').show();
+        
+        renderNerEntities(data.entities);
+        $('#tab-ner-link').tab('show');
+      },
+      error: function(xhr) {
+        $('#btnAnalyze, #btnPos, #btnNer').prop('disabled', false);
+        $('#playgroundLoader').hide();
+        let errMsg = "Failed to extract named entities.";
         if (xhr.responseJSON && xhr.responseJSON.error) {
           errMsg = xhr.responseJSON.error;
         }
@@ -413,10 +718,28 @@
     alert("Final cleaned text copied to clipboard!");
   }
 
+  function copyPosTable() {
+    let tsv = "Word\tPOS Tag\tDescription\n";
+    $('#posTableBody tr').each(function() {
+      const tds = $(this).find('td');
+      if (tds.length === 4) {
+        tsv += `${$(tds[1]).text().trim()}\t${$(tds[2]).text().trim()}\t${$(tds[3]).text().trim()}\n`;
+      }
+    });
+    navigator.clipboard.writeText(tsv);
+    alert("POS tags copied to clipboard (TSV format)!");
+  }
+
   function resetPlayground() {
     $('#playgroundInput').val('');
     $('#playgroundError').hide();
     $('#playgroundResults').hide();
+    $('#posTableBody').empty().append('<tr><td colspan="4" class="text-center text-muted py-4">No POS data yet. Enter text and click "POS Tagging" or "Preprocessing Pipeline".</td></tr>');
+    $('#nerTableBody').empty();
+    $('#nerNoticeNoEntities').hide();
+    $('#nerTableContainer').hide();
+    $('#nerEmptyState').show();
+    $('#posCountBadge, #nerCountBadge').hide();
   }
 
   $(document).ready(function() {

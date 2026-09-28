@@ -312,3 +312,183 @@ def predict_emotion_with_threshold(text, sentiment='Neutral'):
         
     return 'Emotion could not be determined confidently. Please provide a more descriptive sentence.', 0
 
+
+# ==========================================
+# POS TAGGING & NAMED ENTITY RECOGNITION (NER)
+# ==========================================
+
+POS_TAG_DESCRIPTIONS = {
+    'CC': 'Coordinating Conjunction',
+    'CD': 'Cardinal Number',
+    'DT': 'Determiner',
+    'EX': 'Existential There',
+    'FW': 'Foreign Word',
+    'IN': 'Preposition / Subordinating Conjunction',
+    'JJ': 'Adjective',
+    'JJR': 'Comparative Adjective',
+    'JJS': 'Superlative Adjective',
+    'LS': 'List Item Marker',
+    'MD': 'Modal Verb',
+    'NN': 'Noun, Singular or Mass',
+    'NNS': 'Plural Noun',
+    'NNP': 'Proper Noun',
+    'NNPS': 'Proper Noun, Plural',
+    'PDT': 'Predeterminer',
+    'POS': 'Possessive Ending',
+    'PRP': 'Personal Pronoun',
+    'PRP$': 'Possessive Pronoun',
+    'RB': 'Adverb',
+    'RBR': 'Comparative Adverb',
+    'RBS': 'Superlative Adverb',
+    'RP': 'Particle',
+    'SYM': 'Symbol',
+    'TO': 'To / Preposition',
+    'UH': 'Interjection',
+    'VB': 'Verb, Base Form',
+    'VBD': 'Past Tense Verb',
+    'VBG': 'Gerund / Present Participle',
+    'VBN': 'Past Participle Verb',
+    'VBP': 'Present Tense Verb',
+    'VBZ': 'Verb, 3rd Person Singular Present',
+    'WDT': 'Wh-Determiner',
+    'WP': 'Wh-Pronoun',
+    'WP$': 'Possessive Wh-Pronoun',
+    'WRB': 'Wh-Adverb',
+    '.': 'Punctuation',
+    ',': 'Punctuation (Comma)',
+    ':': 'Punctuation (Colon/Semi-colon)',
+    '(': 'Open Bracket',
+    ')': 'Close Bracket',
+    '"': 'Quote',
+    '\'': 'Apostrophe',
+    '$': 'Currency Symbol',
+    '#': 'Hash Symbol'
+}
+
+KNOWN_GPE_ENTITIES = {
+    'mumbai', 'delhi', 'bangalore', 'bengaluru', 'kolkata', 'chennai', 'hyderabad', 'pune', 
+    'india', 'usa', 'america', 'london', 'paris', 'tokyo', 'new york', 'california', 
+    'china', 'japan', 'germany', 'france', 'russia', 'singapore', 'dubai', 'texas', 'uk',
+    'canada', 'australia', 'brazil', 'italy', 'spain', 'mexico'
+}
+
+KNOWN_ORG_ENTITIES = {
+    'microsoft', 'google', 'apple', 'amazon', 'meta', 'facebook', 'twitter', 'netflix', 
+    'tesla', 'ibm', 'intel', 'infosys', 'tcs', 'wipro', 'openai', 'samsung', 'sony', 
+    'harvard', 'stanford', 'mit', 'isro', 'nasa'
+}
+
+KNOWN_PRODUCTS = {
+    'iphone', 'ipad', 'macbook', 'windows', 'chatgpt', 'android', 'playstation', 'xbox'
+}
+
+DAYS_OF_WEEK = {'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'}
+MONTH_NAMES = {
+    'january', 'february', 'march', 'april', 'may', 'june', 'july', 
+    'august', 'september', 'october', 'november', 'december'
+}
+
+def perform_pos_tagging(text):
+    """
+    Performs Part-of-Speech (POS) tagging on natural text using NLTK.
+    Preserves casing and normal token structure.
+    Returns: list of dicts [{'word': ..., 'tag': ..., 'description': ...}]
+    """
+    import nltk
+    from nltk import word_tokenize, pos_tag
+    
+    tokens = word_tokenize(text)
+    tagged = pos_tag(tokens)
+    
+    result = []
+    for word, tag in tagged:
+        desc = POS_TAG_DESCRIPTIONS.get(tag, tag)
+        if word.lower() in {'yesterday', 'today', 'tomorrow', 'tonight', 'now'} and tag in {'NN', 'NNP'}:
+            desc = 'Noun / Time Expression'
+        result.append({
+            'word': word,
+            'tag': tag,
+            'description': desc
+        })
+    return result
+
+def extract_named_entities(text):
+    """
+    Extracts Named Entities (NER) using NLTK chunking and lexical entity recognition.
+    Operates on proper tokens with original casing preserved.
+    Returns: list of dicts [{'text': ..., 'label': ...}]
+    """
+    import nltk
+    from nltk import word_tokenize, pos_tag, ne_chunk
+    from nltk.tree import Tree
+    
+    tokens = word_tokenize(text)
+    tagged = pos_tag(tokens)
+    tree = ne_chunk(tagged)
+    
+    entities = []
+    seen = set()
+    
+    # 1. Extract from NLTK ne_chunk syntax tree
+    for subtree in tree:
+        if isinstance(subtree, Tree):
+            entity_text = ' '.join(leaf[0] for leaf in subtree.leaves())
+            label = subtree.label()
+            low = entity_text.lower()
+            
+            # Map/Refine labels accurately
+            if low in KNOWN_GPE_ENTITIES or label == 'GPE':
+                label = 'GPE/LOCATION'
+            elif low in KNOWN_ORG_ENTITIES or label in ('ORGANIZATION', 'ORG'):
+                label = 'ORGANIZATION'
+            elif low in DAYS_OF_WEEK or low in MONTH_NAMES:
+                label = 'DATE'
+            elif low in KNOWN_PRODUCTS:
+                label = 'PRODUCT'
+            elif label == 'PERSON':
+                label = 'PERSON'
+            elif label in ('FACILITY', 'LOCATION'):
+                label = 'LOCATION / GPE'
+                
+            if low not in seen:
+                entities.append({'text': entity_text, 'label': label})
+                seen.add(low)
+                
+    # 2. Check tokens for dates, locations, organizations, or missed entities
+    for word, tag in tagged:
+        low = word.lower()
+        if low in seen or not word.isalnum():
+            continue
+            
+        if low in DAYS_OF_WEEK or low in MONTH_NAMES:
+            entities.append({'text': word, 'label': 'DATE'})
+            seen.add(low)
+        elif low in KNOWN_GPE_ENTITIES:
+            entities.append({'text': word, 'label': 'GPE/LOCATION'})
+            seen.add(low)
+        elif low in KNOWN_ORG_ENTITIES:
+            entities.append({'text': word, 'label': 'ORGANIZATION'})
+            seen.add(low)
+        elif low in KNOWN_PRODUCTS:
+            entities.append({'text': word, 'label': 'PRODUCT'})
+            seen.add(low)
+            
+    # 3. Currency / Money pattern matching
+    money_matches = re.findall(r'(\$\s*\d+(?:\.\d+)?|₹\s*\d+(?:\.\d+)?|\b\d+\s*(?:dollars|rupees|inr|usd|euros|yen|pounds)\b)', text, re.IGNORECASE)
+    for m in money_matches:
+        m_clean = m.strip()
+        if m_clean.lower() not in seen:
+            entities.append({'text': m_clean, 'label': 'MONEY'})
+            seen.add(m_clean.lower())
+            
+    # 4. Time pattern matching
+    time_matches = re.findall(r'\b(?:\d{1,2}:\d{2}(?:\s*(?:am|pm))?|\d{1,2}\s*(?:am|pm))\b', text, re.IGNORECASE)
+    for tm in time_matches:
+        tm_clean = tm.strip()
+        if tm_clean.lower() not in seen:
+            entities.append({'text': tm_clean, 'label': 'TIME'})
+            seen.add(tm_clean.lower())
+            
+    return entities
+
+

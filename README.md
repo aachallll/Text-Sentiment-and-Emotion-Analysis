@@ -41,7 +41,18 @@ Built with **Django**, **Scikit-learn**, **NLTK**, and **TextBlob**, the system 
   10. **Final Cleaned Text Output**
 * Includes word count, character count, readability score, and token frequency bar chart.
 
-### 4. 🎮 Interactive Sentiment Quiz
+### 4. 🏷️ Part-of-Speech (POS) Tagging
+* Integrates NLTK Perceptron POS tagger to classify the grammatical category of each token.
+* Maps technical Penn Treebank tags (`NNP`, `VBD`, `JJ`, `PRP`, etc.) to clear human-readable descriptions (e.g. *Proper Noun*, *Past Tense Verb*).
+* Accessible via UI tab or dedicated API: `POST /api/pos-tag/`.
+
+### 5. 🔍 Named Entity Recognition (NER)
+* Identifies real-world named entities from natural text without destructive lowercasing.
+* Supports key categories: **PERSON**, **GPE/LOCATION**, **ORGANIZATION**, **DATE**, **TIME**, **MONEY**, **FACILITY**, and **PRODUCT**.
+* Gracefully handles cases with no entities with informative feedback (*"No named entities found in the given text."*).
+* Accessible via UI tab or dedicated API: `POST /api/ner/`.
+
+### 6. 🎮 Interactive Sentiment Quiz
 * Tests human sentiment discernment against trained model predictions.
 * 10 randomized real-world questions with difficulty selection.
 * Provides immediate feedback and contextual explanations for each classification.

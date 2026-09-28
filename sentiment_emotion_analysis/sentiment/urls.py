@@ -14,6 +14,10 @@ urlpatterns = [
     path('playground/', views.playground_view, name="playground"),
     path('playground/api/sample/', views.playground_sample_api, name="playground_sample_api"),
     path('playground/api/analyze/', views.playground_analyze_api, name="playground_analyze_api"),
+    path('playground/api/pos/', views.playground_pos_api, name="playground_pos_api"),
+    path('playground/api/ner/', views.playground_ner_api, name="playground_ner_api"),
+    path('api/pos-tag/', views.playground_pos_api, name="api_pos_tag"),
+    path('api/ner/', views.playground_ner_api, name="api_ner"),
     path('playground/export-pdf/', views.export_playground_pdf, name="export_playground_pdf"),
     path('playground/export-docx/', views.export_playground_docx, name="export_playground_docx"),
 ]

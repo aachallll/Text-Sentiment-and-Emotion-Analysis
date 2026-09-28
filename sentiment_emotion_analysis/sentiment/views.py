@@ -2,6 +2,7 @@ import csv
 from django.shortcuts import render, redirect
 from django.http import HttpResponse, JsonResponse
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
 from textblob import TextBlob
 
 from .forms import Sentiment_Typed_Tweet_analyse_form
@@ -18,7 +19,7 @@ from .nlp_utils import (
     analyze_confidence, analyze_aspects, detect_toxicity, 
     detect_bots, generate_summary, extract_keywords_and_hashtags, 
     generate_historical_trends, validate_natural_language_input,
-    predict_emotion_with_threshold
+    predict_emotion_with_threshold, perform_pos_tagging, extract_named_entities
 )
 
 # Initialize service singletons
@@ -601,11 +602,17 @@ def playground_analyze_api(request):
             f"This is mainly because of indicators related to **{emotion}** emotion."
         )
         
+        # POS Tagging and NER Extraction
+        pos_tokens = perform_pos_tagging(text)
+        ner_entities = extract_named_entities(text)
+        
         data = {
             'steps': steps,
             'sentiment': sentiment,
             'confidence': confidence,
             'emotion': emotion,
+            'pos_tokens': pos_tokens,
+            'ner_entities': ner_entities,
             'word_count': word_count,
             'char_count': char_count,
             'token_count': len(tokens),
@@ -623,6 +630,68 @@ def playground_analyze_api(request):
         return JsonResponse(data)
         
     return JsonResponse({'error': 'POST required'}, status=400)
+
+@csrf_exempt
+def playground_pos_api(request):
+    """
+    Dedicated API endpoint for Part-of-Speech (POS) tagging.
+    Expects POST with 'text'. Returns grammatical category for each word.
+    """
+    if request.method == 'POST':
+        text = request.POST.get('text', '').strip()
+        if not text and request.body:
+            try:
+                import json
+                b = json.loads(request.body)
+                text = b.get('text', '').strip()
+            except Exception:
+                pass
+                
+        if not text:
+            return JsonResponse({'success': False, 'error': 'Please enter some text.'}, status=400)
+            
+        is_valid, err = validate_natural_language_input(text)
+        if not is_valid:
+            return JsonResponse({'success': False, 'error': err}, status=400)
+            
+        try:
+            tokens = perform_pos_tagging(text)
+            return JsonResponse({'success': True, 'tokens': tokens})
+        except Exception:
+            return JsonResponse({'success': False, 'error': 'Failed to process POS tagging.'}, status=500)
+            
+    return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+
+@csrf_exempt
+def playground_ner_api(request):
+    """
+    Dedicated API endpoint for Named Entity Recognition (NER).
+    Expects POST with 'text'. Extracts entities like PERSON, GPE/LOCATION, ORGANIZATION, DATE, etc.
+    """
+    if request.method == 'POST':
+        text = request.POST.get('text', '').strip()
+        if not text and request.body:
+            try:
+                import json
+                b = json.loads(request.body)
+                text = b.get('text', '').strip()
+            except Exception:
+                pass
+                
+        if not text:
+            return JsonResponse({'success': False, 'error': 'Please enter some text.'}, status=400)
+            
+        is_valid, err = validate_natural_language_input(text)
+        if not is_valid:
+            return JsonResponse({'success': False, 'error': err}, status=400)
+            
+        try:
+            entities = extract_named_entities(text)
+            return JsonResponse({'success': True, 'entities': entities})
+        except Exception:
+            return JsonResponse({'success': False, 'error': 'Failed to extract named entities.'}, status=500)
+            
+    return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
 
 def export_playground_pdf(request):
     """Generate print-friendly HTML page that automatically triggers the browser PDF print dialogue."""
@@ -671,6 +740,26 @@ def export_playground_pdf(request):
             <div style="font-family: monospace;">{val}</div>
         </div>
         """
+        
+    if data.get('pos_tokens'):
+        html += """
+        <h2>Part-of-Speech (POS) Tagging</h2>
+        <table class="kpi-table">
+            <tr><th>Word</th><th>POS Tag</th><th>Description</th></tr>
+        """
+        for tok in data['pos_tokens']:
+            html += f"<tr><td><strong>{tok['word']}</strong></td><td><code>{tok['tag']}</code></td><td>{tok['description']}</td></tr>"
+        html += "</table>"
+        
+    if data.get('ner_entities'):
+        html += """
+        <h2>Named Entity Recognition (NER)</h2>
+        <table class="kpi-table">
+            <tr><th>Entity</th><th>Type / Category</th></tr>
+        """
+        for ent in data['ner_entities']:
+            html += f"<tr><td><strong>{ent['text']}</strong></td><td><span style='color: #2563eb; font-weight: bold;'>{ent['label']}</span></td></tr>"
+        html += "</table>"
         
     html += """
         <script>
@@ -721,6 +810,18 @@ def export_playground_docx(request):
         """
     for key, val in data['steps'].items():
         html += f"<p><strong>{key.capitalize()}:</strong><br>{val}</p>"
+        
+    if data.get('pos_tokens'):
+        html += "<h2>Part-of-Speech (POS) Tagging</h2><table><tr><th>Word</th><th>POS Tag</th><th>Description</th></tr>"
+        for tok in data['pos_tokens']:
+            html += f"<tr><td><strong>{tok['word']}</strong></td><td>{tok['tag']}</td><td>{tok['description']}</td></tr>"
+        html += "</table>"
+        
+    if data.get('ner_entities'):
+        html += "<h2>Named Entity Recognition (NER)</h2><table><tr><th>Entity</th><th>Type</th></tr>"
+        for ent in data['ner_entities']:
+            html += f"<tr><td><strong>{ent['text']}</strong></td><td>{ent['label']}</td></tr>"
+        html += "</table>"
         
     html += """
     </body>
