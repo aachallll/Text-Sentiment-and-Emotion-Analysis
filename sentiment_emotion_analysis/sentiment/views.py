@@ -18,7 +18,7 @@ from .dataset_service import DatasetService
 from .nlp_utils import (
     analyze_confidence, analyze_aspects, detect_toxicity, 
     detect_bots, generate_summary, extract_keywords_and_hashtags, 
-    generate_historical_trends, validate_natural_language_input,
+    generate_historical_trends, is_meaningful_text, validate_natural_language_input,
     predict_emotion_with_threshold, perform_pos_tagging, extract_named_entities
 )
 
@@ -47,8 +47,8 @@ def sentiment_analysis_type(request):
             except Exception:
                 pass
                 
-        # 1. Generic Natural Language Validation
-        is_valid, val_error = validate_natural_language_input(raw_text)
+        # 1. Meaningful Sentence Validation Layer
+        is_valid, val_error = is_meaningful_text(raw_text)
         if not is_valid:
             if is_ajax:
                 return JsonResponse({'status': 'error', 'message': val_error}, status=400)
@@ -500,8 +500,8 @@ def playground_analyze_api(request):
         if not text:
             return JsonResponse({'error': 'Please enter text to analyze.'}, status=400)
             
-        # 1. Linguistic Natural Language Validation
-        is_valid, val_error = validate_natural_language_input(text)
+        # 1. Meaningful Sentence Validation Layer
+        is_valid, val_error = is_meaningful_text(text)
         if not is_valid:
             return JsonResponse({'error': val_error}, status=400)
             
@@ -649,9 +649,9 @@ def playground_pos_api(request):
                 pass
                 
         if not text:
-            return JsonResponse({'success': False, 'error': 'Please enter some text.'}, status=400)
+            return JsonResponse({'success': False, 'error': 'Please enter a valid sentence or meaningful text for analysis.'}, status=400)
             
-        is_valid, err = validate_natural_language_input(text)
+        is_valid, err = is_meaningful_text(text)
         if not is_valid:
             return JsonResponse({'success': False, 'error': err}, status=400)
             
@@ -680,9 +680,9 @@ def playground_ner_api(request):
                 pass
                 
         if not text:
-            return JsonResponse({'success': False, 'error': 'Please enter some text.'}, status=400)
+            return JsonResponse({'success': False, 'error': 'Please enter a valid sentence or meaningful text for analysis.'}, status=400)
             
-        is_valid, err = validate_natural_language_input(text)
+        is_valid, err = is_meaningful_text(text)
         if not is_valid:
             return JsonResponse({'success': False, 'error': err}, status=400)
             

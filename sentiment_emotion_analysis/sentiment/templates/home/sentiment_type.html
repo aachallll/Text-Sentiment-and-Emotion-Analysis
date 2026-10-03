@@ -75,7 +75,7 @@
 <div class="type-card">
   <!-- Dynamic Error Alert -->
   <div id="errorAlert" class="alert alert-danger" style="display: {% if error_message %}block{% else %}none{% endif %}; background: rgba(239, 68, 68, 0.1); border: 1px solid #ef4444; color: #ef4444; border-radius: 12px; padding: 15px;">
-    <i class="fa-solid fa-triangle-exclamation mr-2"></i> <span id="errorText">{{ error_message|default:"Please enter meaningful text or a valid sentence." }}</span>
+    <i class="fa-solid fa-triangle-exclamation mr-2"></i> <span id="errorText">{{ error_message|default:"Please enter a valid sentence or meaningful text for analysis." }}</span>
   </div>
 
   <form method="POST" id="manualTextForm">
@@ -141,11 +141,72 @@
     $('#errorAlert').slideUp(200);
   }
 
+  function validateMeaningfulSentence(text) {
+    const defaultErr = "Please enter a valid sentence or meaningful text for analysis.";
+    if (!text || !text.trim()) {
+      return { valid: false, message: defaultErr };
+    }
+    const raw = text.trim();
+    const letters = raw.match(/[a-zA-Z]/g) || [];
+    if (letters.length < 2) {
+      return { valid: false, message: defaultErr };
+    }
+    const alphaNumSpaces = raw.match(/[a-zA-Z0-9\s]/g) || [];
+    if ((alphaNumSpaces.length / raw.length) < 0.4) {
+      return { valid: false, message: defaultErr };
+    }
+    const words = raw.toLowerCase().match(/[a-z]+/g) || [];
+    if (!words.length) {
+      return { valid: false, message: defaultErr };
+    }
+    // Keyboard mash check
+    const cleanAlpha = raw.toLowerCase().replace(/[^a-z]/g, '');
+    const rows = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+    for (let r of rows) {
+      for (let i = 0; i <= r.length - 5; i++) {
+        let seq = r.substring(i, i + 5);
+        let rev = seq.split('').reverse().join('');
+        if (cleanAlpha.includes(seq) || cleanAlpha.includes(rev)) {
+          return { valid: false, message: defaultErr };
+        }
+      }
+    }
+    // Repeated words / word spam
+    if (words.length >= 2) {
+      const unique = new Set(words);
+      if (unique.size === 1) {
+        return { valid: false, message: defaultErr };
+      }
+      const counts = {};
+      let maxCount = 0;
+      for (let w of words) {
+        counts[w] = (counts[w] || 0) + 1;
+        if (counts[w] > maxCount) maxCount = counts[w];
+      }
+      if (words.length >= 3 && (maxCount / words.length) >= 0.60) {
+        return { valid: false, message: defaultErr };
+      }
+      for (let i = 0; i < words.length - 2; i++) {
+        if (words[i] === words[i+1] && words[i+1] === words[i+2]) {
+          return { valid: false, message: defaultErr };
+        }
+      }
+    }
+    if (words.every(w => w.length === 1)) {
+      return { valid: false, message: defaultErr };
+    }
+    return { valid: true };
+  }
+
   $('#manualTextForm').on('submit', function(e) {
     e.preventDefault();
     const text = $('#sentiment_typed_tweet').val().trim();
-    if (!text) {
-      $('#errorText').text('Please enter some text.');
+    
+    // Meaningful sentence validation layer (Client-side)
+    const check = validateMeaningfulSentence(text);
+    if (!check.valid) {
+      $('#resultBox').slideUp(150);
+      $('#errorText').text(check.message);
       $('#errorAlert').slideDown(200);
       return;
     }
@@ -197,7 +258,7 @@
 
           $('#resultBox').slideDown(250);
         } else {
-          $('#errorText').text(response.message || 'Please enter meaningful text or a valid sentence.');
+          $('#errorText').text(response.message || 'Please enter a valid sentence or meaningful text for analysis.');
           $('#errorAlert').slideDown(200);
         }
       },
@@ -206,7 +267,7 @@
         $('#btnSpinner').hide();
         $('#btnAnalyze').prop('disabled', false);
 
-        let msg = 'Please enter meaningful text or a valid sentence.';
+        let msg = 'Please enter a valid sentence or meaningful text for analysis.';
         if (xhr.responseJSON && xhr.responseJSON.message) {
           msg = xhr.responseJSON.message;
         }

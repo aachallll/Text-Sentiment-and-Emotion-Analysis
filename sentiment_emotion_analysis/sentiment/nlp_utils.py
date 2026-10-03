@@ -150,9 +150,11 @@ def generate_historical_trends(tweets):
 
 # Cached vocabulary set for lightweight generic input validation
 _ENGLISH_VOCAB = None
+_ENGLISH_STOPWORDS = None
+_VADER_WORDS = None
 
 def get_english_vocabulary():
-    global _ENGLISH_VOCAB
+    global _ENGLISH_VOCAB, _ENGLISH_STOPWORDS, _VADER_WORDS
     if _ENGLISH_VOCAB is None:
         try:
             import nltk
@@ -160,12 +162,14 @@ def get_english_vocabulary():
             from nltk.sentiment.vader import SentimentIntensityAnalyzer
             
             english_words = set(w.lower() for w in words.words())
-            english_stopwords = set(stopwords.words('english'))
+            _ENGLISH_STOPWORDS = set(stopwords.words('english'))
             vader = SentimentIntensityAnalyzer()
-            vader_words = set(vader.lexicon.keys())
+            _VADER_WORDS = set(vader.lexicon.keys())
             
-            vocab = english_words.union(english_stopwords).union(vader_words)
+            vocab = english_words.union(_ENGLISH_STOPWORDS).union(_VADER_WORDS)
         except Exception:
+            _ENGLISH_STOPWORDS = set(STOPWORDS)
+            _VADER_WORDS = set()
             vocab = set(STOPWORDS)
             
         # Common social media, slang, colloquial, domain words
@@ -176,78 +180,119 @@ def get_english_vocabulary():
             'super', 'great', 'awesome', 'terrible', 'horrible', 'worst', 'best', 'good', 'bad'
         ])
         _ENGLISH_VOCAB = vocab
-    return _ENGLISH_VOCAB
+    return _ENGLISH_VOCAB, _ENGLISH_STOPWORDS, _VADER_WORDS
 
 KEYBOARD_ROWS = ['qwertyuiop', 'asdfghjkl', 'zxcvbnm']
+
+def is_meaningful_text(text):
+    """
+    Meaningful Sentence Validation Layer before sentiment and emotion prediction.
+    Rejects:
+    - Empty or whitespace-only inputs
+    - Numbers-only inputs
+    - Special characters / punctuation-only inputs
+    - Random keyboard mash / gibberish text (e.g. 'vdyqwgfubecjbhjcvyew', 'asdfghjkl')
+    - Repeated word spam (e.g. 'i i i i', 'hello hello hello', 'the the the')
+    Returns: (is_valid: bool, error_message: str)
+    """
+    error_msg = "Please enter a valid sentence or meaningful text for analysis."
+    if not text or not str(text).strip():
+        return False, error_msg
+        
+    raw = str(text).strip()
+    
+    # 1. Reject if no letters or fewer than 2 alphabetic characters
+    letters = re.findall(r'[a-zA-Z]', raw)
+    if len(letters) < 2:
+        return False, error_msg
+        
+    # 2. Reject if only numbers / special characters
+    alpha_num_spaces = re.findall(r'[a-zA-Z0-9\s]', raw)
+    if len(alpha_num_spaces) / len(raw) < 0.4:
+        return False, error_msg
+        
+    # Check if purely digits and punctuation (no alphabetic words)
+    words_list = re.findall(r"[a-zA-Z]+", raw.lower())
+    if not words_list:
+        return False, error_msg
+        
+    # 3. Check for keyboard mash in raw letters (e.g. qwertyuiop, asdfghjkl)
+    clean_alpha = re.sub(r'[^a-z]', '', raw.lower())
+    for row in KEYBOARD_ROWS:
+        for i in range(len(row) - 4):
+            seq = row[i:i+5]
+            if seq in clean_alpha or seq[::-1] in clean_alpha:
+                return False, error_msg
+                
+    # 4. Check repeated words / repetition spam
+    # e.g. 'i i i i', 'hello hello hello', 'the the the', 'abc abc abc abc'
+    total_words = len(words_list)
+    unique_words = set(words_list)
+    
+    if total_words >= 2:
+        # All words identical
+        if len(unique_words) == 1:
+            return False, error_msg
+            
+        # Frequency of most common word is too high (>= 60% of total words when total_words >= 3)
+        counts = Counter(words_list)
+        most_common_word, most_common_count = counts.most_common(1)[0]
+        if total_words >= 3 and (most_common_count / total_words) >= 0.60:
+            return False, error_msg
+            
+        # 3 or more consecutive identical words anywhere in text (e.g. 'word word word')
+        for i in range(len(words_list) - 2):
+            if words_list[i] == words_list[i+1] == words_list[i+2]:
+                return False, error_msg
+                
+    # If all words are single letters (e.g. 'a b c', 'i a i')
+    if all(len(w) == 1 for w in words_list):
+        return False, error_msg
+        
+    # 5. Check dictionary vocabulary presence & gibberish indicators
+    vocab, eng_stopwords, vader_words = get_english_vocabulary()
+    valid_vocab_words = 0
+    
+    # If only 1 word was entered
+    if total_words == 1:
+        w = words_list[0]
+        # Must be a recognized content word (not a standalone stopword) of length >= 3
+        if (w in vocab and w not in eng_stopwords and len(w) >= 3) or (w in vader_words and len(w) >= 3):
+            return True, ""
+        return False, error_msg
+        
+    for w in words_list:
+        # Check consonant spam (5+ consonants in a row)
+        if re.search(r'[bcdfghjklmnpqrstvwxyz]{5,}', w):
+            return False, error_msg
+            
+        # Check repetitive character spam (e.g. 'aaaa', 'xxxx')
+        if re.search(r'(.)\1{3,}', w):
+            return False, error_msg
+            
+        # Check if word has vowels if length >= 4
+        if len(w) >= 4 and not re.search(r'[aeiouy]', w):
+            return False, error_msg
+            
+        if w in vocab:
+            valid_vocab_words += 1
+                
+    # If no recognized vocabulary words
+    if valid_vocab_words == 0:
+        return False, error_msg
+        
+    # Ratio of recognized English words to total words
+    if (valid_vocab_words / total_words) < 0.5:
+        return False, error_msg
+        
+    return True, ""
 
 def validate_natural_language_input(text):
     """
     Generic input validation layer to determine if the input contains meaningful natural-language text.
-    Rejects empty, numeric-only, symbol-only, keyboard mash, and random consonant strings.
-    Returns: (is_valid: bool, error_message: str)
+    Calls is_meaningful_text.
     """
-    if not text or not str(text).strip():
-        return False, "Please enter some text."
-        
-    raw = str(text).strip()
-    
-    # 1. Must contain at least 2 alphabetic letters
-    letters = re.findall(r'[a-zA-Z]', raw)
-    if len(letters) < 2:
-        return False, "Please enter meaningful text or a valid sentence."
-        
-    # 2. Check ratio of alphanumeric characters (reject '@@@@@@', '!!!!!', '.........')
-    non_symbols = re.findall(r'[a-zA-Z0-9\s]', raw)
-    if len(non_symbols) / len(raw) < 0.3:
-        return False, "Please enter meaningful text or a valid sentence."
-        
-    # 3. Check for keyboard mash sequence (e.g. 'qwertyuiop', 'asdfghjkl')
-    clean_alpha = re.sub(r'[^a-z]', '', raw.lower())
-    for row in KEYBOARD_ROWS:
-        for i in range(len(row) - 5):
-            seq = row[i:i+6]
-            if seq in clean_alpha or seq[::-1] in clean_alpha:
-                return False, "Please enter meaningful text or a valid sentence."
-                
-    # 4. Extract word tokens
-    tokens = re.findall(r"[a-zA-Z']+", raw.lower())
-    if not tokens:
-        return False, "Please enter meaningful text or a valid sentence."
-        
-    vocab = get_english_vocabulary()
-    valid_count = 0
-    total_tokens = len(tokens)
-    
-    for t in tokens:
-        t_clean = t.strip("'")
-        if not t_clean:
-            continue
-            
-        # Check excessive consonant sequence (e.g. 5+ consonants in a row with no vowel)
-        if re.search(r'[bcdfghjklmnpqrstvwxyz]{5,}', t_clean):
-            continue
-            
-        # Check vowel presence for words of length >= 4
-        vowels = re.findall(r'[aeiouy]', t_clean)
-        if len(t_clean) >= 4 and not vowels:
-            continue
-            
-        # Check repetitive character spam (e.g. 'aaaaaa', 'xxxxxx')
-        if re.search(r'(.)\1{3,}', t_clean):
-            continue
-            
-        if t_clean in vocab:
-            valid_count += 1
-            
-    if total_tokens == 1:
-        if valid_count < 1:
-            return False, "Please enter meaningful text or a valid sentence."
-    else:
-        # For multiple words, at least 30% of words must be recognizable, and at least 1 word
-        if valid_count < 1 or (valid_count / total_tokens) < 0.3:
-            return False, "Please enter meaningful text or a valid sentence."
-            
-    return True, ""
+    return is_meaningful_text(text)
 
 def predict_emotion_with_threshold(text, sentiment='Neutral'):
     """
