@@ -78,7 +78,7 @@ Built with **Django**, **Scikit-learn**, **NLTK**, and **TextBlob**, the system 
 ## 📁 Project Structure
 
 ```text
-Twitter-Sentiment-Emotion-Analysis-master/
+Text-Sentiment-and-Emotion-Analysis/
 ├── README.md
 └── sentiment_emotion_analysis/
     ├── manage.py
@@ -114,9 +114,13 @@ Twitter-Sentiment-Emotion-Analysis-master/
 ## 💻 How to Run in VS Code
 
 ### Step 1: Open the Project
-Open the project folder in VS Code:
+Clone or open the project folder in VS Code:
 ```bash
-File -> Open Folder -> Twitter-Sentiment-Emotion-Analysis-master
+git clone https://github.com/aachallll/Text-Sentiment-and-Emotion-Analysis.git
+```
+Or:
+```bash
+File -> Open Folder -> Text-Sentiment-and-Emotion-Analysis
 ```
 
 ### Step 2: Open Terminal in VS Code
